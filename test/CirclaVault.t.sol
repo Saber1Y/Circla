@@ -102,8 +102,8 @@ contract MockAerodromeRouter {
         uint256
     ) external returns (uint256[] memory amounts) {
         require(output >= amountOutMin, "minimum output");
-        usdc.transferFrom(msg.sender, address(this), amountIn);
-        stock.transfer(to, output);
+        require(usdc.transferFrom(msg.sender, address(this), amountIn), "transferFrom failed");
+        require(stock.transfer(to, output), "transfer failed");
         amounts = new uint256[](2);
         amounts[0] = amountIn;
         amounts[1] = output;
