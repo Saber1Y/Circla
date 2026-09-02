@@ -71,6 +71,15 @@ contract CirclaVault is Ownable, ReentrancyGuard {
     event Withdrawal(
         address indexed member, address indexed recipient, uint256 units, uint256 usdcAmount, uint256 assetAmount
     );
+    event LiquidationWithdrawal(
+        address indexed member,
+        address indexed recipient,
+        uint256 units,
+        uint256 reservedUsdc,
+        uint256 liquidatedUsdc,
+        uint256 assetAmount,
+        address router
+    );
     event SettlementPauseChanged(bool paused);
 
     error CircleClosedError();
@@ -88,6 +97,7 @@ contract CirclaVault is Ownable, ReentrancyGuard {
     error UnsafePrice();
     error InvalidRoute();
     error InvalidRecipient();
+    error RecipientIsAuthorized();
 
     modifier onlyMember() {
         if (!isMember[msg.sender]) revert NotMember();
@@ -262,6 +272,43 @@ contract CirclaVault is Ownable, ReentrancyGuard {
         if (assetAmount > 0) IERC20(portfolioAsset).safeTransfer(recipient, assetAmount);
         if (usdcAmount > 0) usdc.safeTransfer(recipient, usdcAmount);
         emit Withdrawal(msg.sender, recipient, units, usdcAmount, assetAmount);
+    }
+
+    function withdrawAsUSDC(
+        uint256 units,
+        address recipient,
+        address router,
+        IAerodromeRouterLike.Route[] calldata routes,
+        uint256 minAmountOut
+    ) external onlyMember nonReentrant returns (uint256 totalUsdc) {
+        if (recipient == address(0)) revert InvalidRecipient();
+        if (units == 0 || units > memberUnits[msg.sender]) revert InsufficientClaim();
+        if (portfolioAsset == address(0)) revert InvalidProposal();
+        uint64 policy = IB20Like(portfolioAsset).policyId(TRANSFER_RECEIVER_POLICY);
+        if (policyRegistry.isAuthorized(policy, recipient)) revert RecipientIsAuthorized();
+        if (!registry.approvedRouters(router)) revert InvalidProposal();
+        if (routes.length == 0 || routes[0].from != portfolioAsset || routes[routes.length - 1].to != address(usdc)) {
+            revert InvalidRoute();
+        }
+        for (uint256 i; i < routes.length; ++i) {
+            if (i > 0 && routes[i - 1].to != routes[i].from) revert InvalidRoute();
+        }
+
+        uint256 assetAmount = IB20Like(portfolioAsset).balanceOf(address(this)) * units / totalUnits;
+        uint256 reservedUsdc = usdc.balanceOf(address(this)) * units / totalUnits;
+        memberUnits[msg.sender] -= units;
+        totalUnits -= units;
+
+        IERC20(portfolioAsset).forceApprove(router, assetAmount);
+        uint256 balanceBefore = usdc.balanceOf(address(this));
+        uint256[] memory amounts = IAerodromeRouterLike(router)
+            .swapExactTokensForTokens(assetAmount, minAmountOut, routes, address(this), block.timestamp);
+        IERC20(portfolioAsset).forceApprove(router, 0);
+        uint256 liquidatedUsdc = usdc.balanceOf(address(this)) - balanceBefore;
+        if (amounts[amounts.length - 1] != liquidatedUsdc) revert InvalidProposal();
+        totalUsdc = reservedUsdc + liquidatedUsdc;
+        usdc.safeTransfer(recipient, totalUsdc);
+        emit LiquidationWithdrawal(msg.sender, recipient, units, reservedUsdc, liquidatedUsdc, assetAmount, router);
     }
 
     function members() external view returns (address[] memory) {
