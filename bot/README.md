@@ -4,7 +4,9 @@ This package currently contains the typed intent boundary for the Telegram integ
 
 The parser deliberately resolves symbols to intent data only.
 
-It does not resolve a token address, build calldata, sign a transaction, or execute a trade.
+The proposal service resolves only official Coinbase Tokenized Stock addresses on Base.
+
+It does not build calldata, sign a transaction, or execute a trade.
 
 Those operations belong to the asset registry, policy service, wallet adapter, and Base contract.
 
