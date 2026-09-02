@@ -104,7 +104,7 @@ contract CirclaVault is Ownable, ReentrancyGuard {
         uint8 quorum_,
         uint256 contributionTarget_,
         uint256 perTradeLimit_,
-        uint256 proposalTTL_
+        uint256 proposalTtl_
     ) Ownable(owner_) {
         if (usdc_ == address(0) || registry_ == address(0) || policyRegistry_ == address(0)) revert InvalidRecipient();
         if (maxMembers_ == 0 || quorum_ == 0 || quorum_ > maxMembers_) revert InvalidQuorum();
@@ -116,7 +116,7 @@ contract CirclaVault is Ownable, ReentrancyGuard {
         quorum = quorum_;
         contributionTarget = contributionTarget_;
         perTradeLimit = perTradeLimit_;
-        proposalTTL = proposalTTL_;
+        proposalTTL = proposalTtl_;
     }
 
     function join() external nonReentrant {
@@ -159,8 +159,18 @@ contract CirclaVault is Ownable, ReentrancyGuard {
         }
         proposalId = ++proposalCount;
         uint256 deadline = block.timestamp + proposalTTL;
-        proposals[proposalId] =
-            Proposal(msg.sender, asset, amountIn, minAmountOut, deadline, proposalId, 0, 0, false, false);
+        proposals[proposalId] = Proposal({
+            proposer: msg.sender,
+            asset: asset,
+            amountIn: amountIn,
+            minAmountOut: minAmountOut,
+            deadline: deadline,
+            nonce: proposalId,
+            yesVotes: 0,
+            noVotes: 0,
+            executed: false,
+            cancelled: false
+        });
         emit ProposalCreated(proposalId, msg.sender, asset, amountIn, minAmountOut, deadline);
     }
 
@@ -263,6 +273,7 @@ contract CirclaVault is Ownable, ReentrancyGuard {
         if (answer <= 0 || updatedAt == 0 || block.timestamp - updatedAt > MAX_PRICE_AGE) revert UnsafePrice();
         uint8 feedDecimals = IPriceFeedLike(feed).decimals();
         uint8 tokenDecimals = registry.getAsset(token).tokenDecimals;
+        // The answer is positive by the check above, so this conversion cannot truncate a negative value.
         return rawBalance * uint256(answer) * 1e6 / (10 ** tokenDecimals) / (10 ** feedDecimals);
     }
 }
