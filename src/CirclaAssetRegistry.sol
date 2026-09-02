@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IB20Like, IPriceFeedLike} from "./interfaces/CirclaInterfaces.sol";
+import {IPriceFeedLike} from "./interfaces/CirclaInterfaces.sol";
 
 /// @title CirclaAssetRegistry
 /// @notice Explicit allowlist for Coinbase B20 assets, their feeds, and approved routers.
@@ -39,7 +39,13 @@ contract CirclaAssetRegistry is Ownable {
         catch {
             revert InvalidPriceFeed();
         }
-        assets[token] = AssetConfig(token, priceFeed, tokenDecimals, maxTradeAmount, enabled);
+        assets[token] = AssetConfig({
+            token: token,
+            priceFeed: priceFeed,
+            tokenDecimals: tokenDecimals,
+            maxTradeAmount: maxTradeAmount,
+            enabled: enabled
+        });
         emit AssetConfigured(token, priceFeed, tokenDecimals, maxTradeAmount, enabled);
     }
 
