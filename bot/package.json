@@ -3,6 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "start": "node src/index.mjs"
+  },
+  "dependencies": {
+    "telegraf": "^4.16.3",
+    "viem": "^2.21.54"
   }
 }
