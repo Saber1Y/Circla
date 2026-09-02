@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {CirclaAssetRegistry} from "../src/CirclaAssetRegistry.sol";
 import {CirclaVault} from "../src/CirclaVault.sol";
 import {IAerodromeRouterLike} from "../src/interfaces/CirclaInterfaces.sol";
@@ -80,7 +81,6 @@ contract MockPolicyRegistry {
 }
 
 contract MockAerodromeRouter {
-    using SafeTransferLib for address;
     MockUSDC public immutable usdc;
     MockB20 public immutable stock;
     uint256 public output;
@@ -97,22 +97,21 @@ contract MockAerodromeRouter {
     function swapExactTokensForTokens(
         uint256 amountIn,
         uint256 amountOutMin,
-        IAerodromeRouterLike.Route[] calldata,
+        IAerodromeRouterLike.Route[] calldata routes,
         address to,
         uint256
     ) external returns (uint256[] memory amounts) {
         require(output >= amountOutMin, "minimum output");
-        require(usdc.transferFrom(msg.sender, address(this), amountIn), "transferFrom failed");
-        require(stock.transfer(to, output), "transfer failed");
+        if (routes[0].from == address(usdc)) {
+            require(IERC20(address(usdc)).transferFrom(msg.sender, address(this), amountIn), "transferFrom failed");
+            require(IERC20(address(stock)).transfer(to, output), "transfer failed");
+        } else {
+            require(IERC20(address(stock)).transferFrom(msg.sender, address(this), amountIn), "transferFrom failed");
+            require(IERC20(address(usdc)).transfer(to, output), "transfer failed");
+        }
         amounts = new uint256[](2);
         amounts[0] = amountIn;
         amounts[1] = output;
-    }
-}
-
-library SafeTransferLib {
-    function transferFrom(address token, address from, address to, uint256 amount) internal {
-        require(MockUSDC(token).transferFrom(from, to, amount), "transferFrom failed");
     }
 }
 
@@ -216,6 +215,21 @@ contract CirclaVaultTest is Test {
         vm.prank(alice);
         vault.withdraw(units, recipient);
         assertEq(stock.balanceOf(recipient), 500_000);
+    }
+
+    function testUnauthorizedRecipientCanLiquidateB20ToUSDC() public {
+        _buyStock();
+        stock.setPolicy(7);
+        router.setOutput(50e6);
+        IAerodromeRouterLike.Route[] memory routes = new IAerodromeRouterLike.Route[](1);
+        routes[0] = IAerodromeRouterLike.Route(address(stock), address(usdc), false, address(0));
+        uint256 units = vault.memberUnits(alice);
+
+        vm.prank(alice);
+        vault.withdrawAsUSDC(units, recipient, address(router), routes, 50e6);
+
+        assertEq(usdc.balanceOf(recipient), 50e6);
+        assertEq(stock.balanceOf(address(vault)), 500_000);
     }
 
     function testCannotExecuteWithoutQuorum() public {
