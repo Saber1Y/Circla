@@ -35,7 +35,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               (function(){
                 try{
                   var tg = window.Telegram && window.Telegram.WebApp;
-                  if(tg){
+                  var real = tg && ((typeof tg.initData === 'string' && tg.initData.length > 0) || (tg.platform && tg.platform !== 'unknown' && tg.initDataUnsafe && tg.initDataUnsafe.user));
+                  if(real){
                     document.documentElement.setAttribute('data-tma','true');
                     tg.ready && tg.ready();
                     tg.expand && tg.expand();
