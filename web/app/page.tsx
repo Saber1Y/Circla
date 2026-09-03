@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Users, LineChart, Smartphone } from "lucide-react";
 import WorkflowDiagram from "@/components/WorkflowDiagram";
 import SecurityDiagram from "@/components/SecurityDiagram";
 
@@ -49,17 +50,23 @@ export default function Landing() {
       {/* 2. Three-Card Grid */}
       <section className="grid grid-cols-1 gap-5 md:grid-cols-3">
         <article className="animate-slide-in rounded-[24px] border border-[#e3dfd7] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] delay-100">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff0eb] text-[#ff4f18]">◯</div>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff0eb] text-[#ff4f18]">
+            <Users className="h-[18px] w-[18px]" />
+          </div>
           <h3 className="mt-4 font-[var(--font-newsreader)] text-[15px] font-semibold text-[#101114]">Group Treasury</h3>
           <p className="mt-2 font-[var(--font-sora)] text-[13px] leading-relaxed text-[#77736c]">Automate USDC pooling with friends using ChainCircle ROSCA mechanics.</p>
         </article>
         <article className="animate-slide-in rounded-[24px] border border-[#e3dfd7] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] delay-200">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">◈</div>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff0eb] text-[#ff4f18]">
+            <LineChart className="h-[18px] w-[18px]" />
+          </div>
           <h3 className="mt-4 font-[var(--font-newsreader)] text-[15px] font-semibold text-[#101114]">Real US Equities</h3>
           <p className="mt-2 font-[var(--font-sora)] text-[13px] leading-relaxed text-[#77736c]">Backed 1:1 by real shares via Coinbase Tokenized Stocks on Base.</p>
         </article>
         <article className="animate-slide-in rounded-[24px] border border-[#e3dfd7] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] delay-300">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff0eb] text-[#ff4f18]">✦</div>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff0eb] text-[#ff4f18]">
+            <Smartphone className="h-[18px] w-[18px]" />
+          </div>
           <h3 className="mt-4 font-[var(--font-newsreader)] text-[15px] font-semibold text-[#101114]">Telegram Native</h3>
           <p className="mt-2 font-[var(--font-sora)] text-[13px] leading-relaxed text-[#77736c]">No seed phrases. Manage everything via chat commands and embedded Mini Apps.</p>
         </article>
