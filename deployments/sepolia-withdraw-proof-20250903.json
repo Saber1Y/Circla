@@ -1,0 +1,30 @@
+{
+  "chainId": 84532,
+  "chain": "base-sepolia",
+  "vault": "0x5E5785C04cC3Bc245130eCB351AaEBbB94138df1",
+  "usdc": "0x678778D9A12cE7Ea2dd2A4AA0390Ff0266f8472c",
+  "stock": "0x8014ad94FFF3Cc7CD7f3D559d5E6e10Bd166c761",
+  "router": "0x49F96F3d59f694346F446B681642CFC707a7D6BA",
+  "alice": "0x53A41e754A442C6A1Ead65a606663F97eb73f266",
+  "flow": {
+    "withdrawDirect": "0x5b08c575833ebb7c27af48ca793e88a8fe907d4d26d355f7d6d9ba8143f270a5",
+    "setReceiverPolicy": "0x6692e0fd003396117131b4c7f7a7b8c3dad360722046467c9277d157355c4853",
+    "withdrawAsUSDC": "0xb9861179d752ceafec40f07a83d7aa0eb20fc432954d6896824460009b6829d9"
+  },
+  "results": {
+    "withdrawDirectUsdc": "5000000",
+    "withdrawDirectStock": "200000",
+    "postDirectPoolValue": "15600000",
+    "liquidationUnits": "12500000000000000000",
+    "liquidationTotalUsdc": "12500000",
+    "liquidationReservedUsdc": "2500000",
+    "liquidationSwappedUsdc": "10000000",
+    "finalPoolValue": "13000000",
+    "finalVaultUsdc": "12500000",
+    "finalVaultStock": "500000",
+    "aliceRemainingUnits": "12500000000000000000"
+  },
+  "explorerBase": "https://sepolia.basescan.org/tx/",
+  "verifiedAt": "2025-09-03T19:xx:00Z",
+  "note": "Withdrawal proofs: direct B20+USDC withdraw and blocked-recipient USDC liquidation via allowlisted router. See broadcast/RunSepoliaWithdraw.s.sol/84532/run-latest.json"
+}
