@@ -9,6 +9,7 @@ const vaultAbi = [
     stateMutability: 'nonpayable',
     inputs: [
       {name: 'asset', type: 'address'},
+      {name: 'router', type: 'address'},
       {name: 'amountIn', type: 'uint256'},
       {name: 'minAmountOut', type: 'uint256'},
     ],
@@ -70,11 +71,11 @@ export function depositPlan({vault, usdc, amountUsdc}) {
   ];
 }
 
-export function proposalPlan({vault, asset, amountUsdc, minAmountOut}) {
+export function proposalPlan({vault, asset, router, amountUsdc, minAmountOut}) {
   return call(vault, encodeFunctionData({
     abi: vaultAbi,
     functionName: 'createProposal',
-    args: [asset, parseUnits(String(amountUsdc), 6), BigInt(minAmountOut)],
+    args: [asset, router, parseUnits(String(amountUsdc), 6), BigInt(minAmountOut)],
   }));
 }
 
