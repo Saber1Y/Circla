@@ -13,8 +13,8 @@ const config: Config = {
           muted: "#77736c",
           line: "#e3dfd7",
           paper: "#f5f3ee",
-          orange: "#ff4f18",
-          orangeSoft: "#fff0eb",
+          blue: "#0052FF",
+          blueSoft: "#EFF6FF",
         },
       },
       fontFamily: {
