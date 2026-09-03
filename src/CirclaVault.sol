@@ -45,6 +45,7 @@ contract CirclaVault is Ownable, ReentrancyGuard {
     struct Proposal {
         address proposer;
         address asset;
+        address router;
         uint256 amountIn;
         uint256 minAmountOut;
         uint256 deadline;
@@ -158,13 +159,16 @@ contract CirclaVault is Ownable, ReentrancyGuard {
         emit ContributionReceived(msg.sender, amount, units);
     }
 
-    function createProposal(address asset, uint256 amountIn, uint256 minAmountOut)
+    function createProposal(address asset, address router, uint256 amountIn, uint256 minAmountOut)
         external
         onlyMember
         returns (uint256 proposalId)
     {
         CirclaAssetRegistry.AssetConfig memory config = registry.getAsset(asset);
-        if (!config.enabled || amountIn == 0 || amountIn > perTradeLimit || amountIn > config.maxTradeAmount) {
+        if (
+            !config.enabled || !registry.approvedRouters(router) || amountIn == 0 || amountIn > perTradeLimit
+                || amountIn > config.maxTradeAmount
+        ) {
             revert InvalidProposal();
         }
         proposalId = ++proposalCount;
@@ -172,6 +176,7 @@ contract CirclaVault is Ownable, ReentrancyGuard {
         proposals[proposalId] = Proposal({
             proposer: msg.sender,
             asset: asset,
+            router: router,
             amountIn: amountIn,
             minAmountOut: minAmountOut,
             deadline: deadline,
@@ -212,7 +217,7 @@ contract CirclaVault is Ownable, ReentrancyGuard {
         for (uint256 i; i < routes.length; ++i) {
             if (i > 0 && routes[i - 1].to != routes[i].from) revert InvalidRoute();
         }
-        if (!registry.approvedRouters(router)) revert InvalidProposal();
+        if (router != proposal.router || !registry.approvedRouters(router)) revert InvalidProposal();
         proposal.executed = true;
         usdc.forceApprove(router, proposal.amountIn);
         uint256[] memory amounts = IAerodromeRouterLike(router)
