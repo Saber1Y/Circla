@@ -3,8 +3,21 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-// Global TMA detection: if running inside Telegram WebView,
-// inherit native theme vars and route straight to the syndicate dashboard.
+// Global TMA detection: only a real Telegram WebView carries launch data.
+// The @twa-dev/sdk module object always exposes `ready`, so module presence
+// alone is NOT a signal — window.Telegram.WebApp.initData must be non-empty.
+function isRealTMA(tg: any): boolean {
+  if (!tg) return false;
+  if (typeof tg.initData === "string" && tg.initData.length > 0) return true;
+  if (
+    typeof tg.platform === "string" &&
+    tg.platform !== "unknown" &&
+    typeof tg.initDataUnsafe?.user !== "undefined"
+  )
+    return true;
+  return false;
+}
+
 export function useTMA() {
   const [isTMA, setIsTMA] = useState(false);
   const [isReady, setIsReady] = useState(false);
@@ -12,52 +25,30 @@ export function useTMA() {
 
   useEffect(() => {
     let cancelled = false;
-    const applyTheme = (tp: Record<string, string | undefined>) => {
-      const root = document.documentElement;
-      if (tp.bg_color) root.style.setProperty("--tg-theme-bg-color", tp.bg_color);
-      if (tp.text_color) root.style.setProperty("--tg-theme-text-color", tp.text_color);
-      if (tp.hint_color) root.style.setProperty("--tg-theme-hint-color", tp.hint_color);
-    };
-
     try {
       const tg = (window as any).Telegram?.WebApp;
-      if (tg) {
+      if (isRealTMA(tg)) {
         document.documentElement.setAttribute("data-tma", "true");
         tg.ready?.();
         tg.expand?.();
-        if (tg.themeParams) applyTheme(tg.themeParams);
+        const tp = tg.themeParams || {};
+        const root = document.documentElement;
+        if (tp.bg_color) root.style.setProperty("--tg-theme-bg-color", tp.bg_color);
+        if (tp.text_color) root.style.setProperty("--tg-theme-text-color", tp.text_color);
+        if (tp.hint_color) root.style.setProperty("--tg-theme-hint-color", tp.hint_color);
         if (!cancelled) setIsTMA(true);
-        const path = window.location.pathname;
-        if (path === "/") {
+        if (window.location.pathname === "/") {
           const last = localStorage.getItem("circla:lastSyndicate") || "demo";
           router.replace(`/syndicate/${last}`);
         }
       }
     } catch {
-      // not in Telegram — desktop web path
+      // desktop web path
+    } finally {
+      if (!cancelled) setIsReady(true);
     }
-
-    import("@twa-dev/sdk")
-      .then((mod: any) => {
-        try {
-          const WebApp = mod.default || mod;
-          if (WebApp?.ready && !cancelled) {
-            setIsTMA(true);
-            document.documentElement.setAttribute("data-tma", "true");
-          }
-        } catch {
-          // ignore
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setIsReady(true);
-      });
-
-    const t = setTimeout(() => !cancelled && setIsReady(true), 600);
     return () => {
       cancelled = true;
-      clearTimeout(t);
     };
   }, [router]);
 
