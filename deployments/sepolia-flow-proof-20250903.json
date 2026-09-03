@@ -1,0 +1,42 @@
+{
+  "chainId": 84532,
+  "chain": "base-sepolia",
+  "vault": "0x5E5785C04cC3Bc245130eCB351AaEBbB94138df1",
+  "usdc": "0x678778D9A12cE7Ea2dd2A4AA0390Ff0266f8472c",
+  "stock": "0x8014ad94FFF3Cc7CD7f3D559d5E6e10Bd166c761",
+  "router": "0x49F96F3d59f694346F446B681642CFC707a7D6BA",
+  "members": [
+    "0x3F5b96A494061F7338Da529e3047809Ac6a7FB84",
+    "0x53A41e754A442C6A1Ead65a606663F97eb73f266"
+  ],
+  "flow": {
+    "joinDeployer": "0x2792a91128356191fe36ba0380c76adc97db9c00fd538b01071f1df6c1bb8657",
+    "fundAlice": "0x3619d91497599412d99f85842cbaf5a5bc5c910e2148bb1ece1597ec705eb3f0",
+    "mintAlice": "0xdb42619963b326b05eeb99f2365d1436353585692319a28d79f37bc36fd80d16",
+    "joinAlice": "0x422afdc5b801a991678e4e810448a6e054335b7ad2bfbd796bc81c74f6750314",
+    "approveDeployer": "0x6372bc487653664e310dde0bb1877f4a1f62b1ab0586ec4e1f87a698b7775831",
+    "depositDeployer": "0x5d9bd8b45952a42b089e01518f638d141a1875bee710af8bc366b39ffd02d213",
+    "approveAlice": "0xc7b6f1a5ee1b9fdb6081a5cfba7418e4f69db3024f8928b4201c32c02271fe89",
+    "depositAlice": "0x8b1448cbea4f607e49b559ae872dc883b5eb3c674dba144ec85d7b7c60f2ec98",
+    "createProposal": "0xdb801a3bc0e19b15fbc021780a3c876fd9525b73cc7a3374f8365d03a4acf2e6",
+    "voteDeployer": "0x15b799758eac808074a2ae079bd108f04fdba43606a4d382d936623387a9d6b8",
+    "voteAlice": "0x9a817c15f77e4eefbae1258c8d2c2ec3fbb2fcb4890611d8b6f849a8a8556bb6",
+    "executeProposal": "0x05e56702b34d3dda922fe2d8c6b8d661ce4b339f4d3b791e95831a4f94a2ba96"
+  },
+  "results": {
+    "poolValue": "20800000",
+    "vaultUsdcBalance": "20000000",
+    "vaultStockRaw": "800000",
+    "vaultStockScaled": "800000",
+    "deployerClaim": "10400000",
+    "aliceClaim": "10400000",
+    "totalUnits": "100000000000000000000",
+    "proposalId": 1,
+    "amountIn": "80000000",
+    "amountOut": "800000",
+    "minAmountOut": "792000"
+  },
+  "explorerBase": "https://sepolia.basescan.org/tx/",
+  "verifiedAtBlock": 46345100,
+  "note": "Live Base Sepolia proof. Deposits 50+50 tUSDC, governed 80 tUSDC -> 800k tNVDAc via allowlisted router. See broadcast/RunSepoliaFlow.s.sol/84532/run-latest.json for full traces."
+}
