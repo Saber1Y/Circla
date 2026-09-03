@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IPriceFeedLike} from "./interfaces/CirclaInterfaces.sol";
+import {IB20Like, IPriceFeedLike} from "./interfaces/CirclaInterfaces.sol";
 
 /// @title CirclaAssetRegistry
 /// @notice Explicit allowlist for Coinbase B20 assets, their feeds, and approved routers.
@@ -25,6 +25,7 @@ contract CirclaAssetRegistry is Ownable {
 
     error InvalidAddress();
     error InvalidDecimals();
+    error DecimalsMismatch();
     error InvalidPriceFeed();
 
     constructor(address owner_) Ownable(owner_) {}
@@ -35,6 +36,11 @@ contract CirclaAssetRegistry is Ownable {
     {
         if (token == address(0) || priceFeed == address(0)) revert InvalidAddress();
         if (tokenDecimals < 6 || tokenDecimals > 18) revert InvalidDecimals();
+        try IB20Like(token).decimals() returns (uint8 actualDecimals) {
+            if (actualDecimals != tokenDecimals) revert DecimalsMismatch();
+        } catch {
+            revert InvalidAddress();
+        }
         try IPriceFeedLike(priceFeed).decimals() returns (uint8) {}
         catch {
             revert InvalidPriceFeed();
