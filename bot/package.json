@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "start": "node src/index.mjs"
+    "start": "node src/index.mjs",
+    "verify:base-assets": "node scripts/verify-base-assets.mjs"
   },
   "dependencies": {
     "telegraf": "^4.16.3",
