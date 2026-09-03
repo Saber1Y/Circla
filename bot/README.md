@@ -15,3 +15,13 @@ Run the parser tests:
 ```bash
 npm test
 ```
+
+Run the Telegram bot with live Base vault reads:
+
+```bash
+TELEGRAM_BOT_TOKEN=... CIRCLA_VAULT_ADDRESS=0x... npm start
+```
+
+The bot does not hold a private key.
+
+Deposits, votes, and trades are handed off to a wallet-confirmed application flow.
