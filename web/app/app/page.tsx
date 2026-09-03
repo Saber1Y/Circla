@@ -223,7 +223,7 @@ export default function Page() {
     <main className="mx-auto max-w-[1180px] px-7 py-6 max-md:px-4">
       <header className="flex items-center justify-between gap-4">
         <a href="/" className="text-[17px] font-extrabold tracking-tight text-[#101114]">
-          CIRCLA<span className="ml-1 text-[11px] font-bold tracking-widest text-[#ff4f18]">/APP</span>
+          CIRCLA<span className="ml-1 text-[11px] font-bold tracking-widest text-[#0052FF]">/APP</span>
         </a>
         <div className="ml-auto hidden items-center gap-2 text-xs text-[#77736c] md:flex">
           <span className="hidden md:inline">Private circle wallet — for members only</span>
@@ -236,7 +236,7 @@ export default function Page() {
       </header>
 
       <section className="max-w-[880px] pb-6 pt-8">
-        <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#ff4f18]">CIRCLA APP</p>
+        <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#0052FF]">CIRCLA APP</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Manage your circle directly.</h1>
         <p className="mt-2 max-w-[600px] text-sm leading-relaxed text-[#77736c]">This is the member wallet — join, deposit, vote, and withdraw. For the story, use the landing page. For Telegram, use the bot.</p>
         <div className="mt-4 flex items-center gap-2 text-xs text-[#77736c]">
@@ -246,15 +246,15 @@ export default function Page() {
       <section className="max-w-[880px] pb-14 pt-2">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#101114] px-3 py-2 text-[11px] font-bold tracking-wide text-white">
           <span className="h-[7px] w-[7px] rounded-full bg-[#42a85f] shadow-[0_0_0_4px_rgba(66,168,95,0.2)]" /> LIVE ON {isSepolia ? "BASE SEPOLIA" : "BASE"} · VAULT {VAULT ? `${VAULT.slice(0, 6)}…${VAULT.slice(-4)}` : "NOT CONFIGURED"} ·{" "}
-          <a href={vaultLink} target="_blank" className="text-[#ff8a6b] hover:underline">
+          <a href={vaultLink} target="_blank" className="text-[#5B8DEF] hover:underline">
             View on Basescan ↗
           </a>
         </div>
-        <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#ff4f18]">PRIVATE INVESTMENT CIRCLES ON BASE</p>
+        <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#0052FF]">PRIVATE INVESTMENT CIRCLES ON BASE</p>
         <h1 className="mt-3 text-[clamp(52px,8vw,102px)] font-extrabold leading-[0.9] tracking-[-0.085em]">
           Make the group decision.
           <br />
-          <em className="not-italic text-[#ff4f18]">Own the outcome.</em>
+          <em className="not-italic text-[#0052FF]">Own the outcome.</em>
         </h1>
         <p className="mt-6 max-w-[560px] text-lg leading-relaxed text-[#5e5b57]">
           CIRCLA turns Telegram votes into transparent, policy-bound ownership of Coinbase Tokenized Stocks. No brokerage. No custody. Just your circle, your vault, your votes.
@@ -274,22 +274,22 @@ export default function Page() {
 
       <section id="app" className="py-2">
         <div className="mb-4">
-          <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#ff4f18]">HOW IT WORKS</p>
+          <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#0052FF]">HOW IT WORKS</p>
           <h2 className="mt-1 text-3xl font-bold tracking-tight">Three steps. One vault. No middleman.</h2>
         </div>
         <div className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
           <article className="rounded-2xl border border-[#e3dfd7] bg-white p-6">
-            <span className="text-[11px] font-extrabold tracking-widest text-[#ff4f18]">01</span>
+            <span className="text-[11px] font-extrabold tracking-widest text-[#0052FF]">01</span>
             <h3 className="mt-2 text-lg font-bold tracking-tight">Pool</h3>
             <p className="mt-2 text-sm leading-relaxed text-[#77736c]">Friends join a private circle and deposit USDC. Every deposit mints pro-rata units — your claim, on-chain.</p>
           </article>
           <article className="rounded-2xl border border-[#e3dfd7] bg-white p-6">
-            <span className="text-[11px] font-extrabold tracking-widest text-[#ff4f18]">02</span>
+            <span className="text-[11px] font-extrabold tracking-widest text-[#0052FF]">02</span>
             <h3 className="mt-2 text-lg font-bold tracking-tight">Vote</h3>
             <p className="mt-2 text-sm leading-relaxed text-[#77736c]">Anyone proposes a Coinbase stock buy. The vault binds the router, amount, and slippage before votes start.</p>
           </article>
           <article className="rounded-2xl border border-[#e3dfd7] bg-white p-6">
-            <span className="text-[11px] font-extrabold tracking-widest text-[#ff4f18]">03</span>
+            <span className="text-[11px] font-extrabold tracking-widest text-[#0052FF]">03</span>
             <h3 className="mt-2 text-lg font-bold tracking-tight">Own</h3>
             <p className="mt-2 text-sm leading-relaxed text-[#77736c]">Quorum-gated execution swaps via Aerodrome, reads the Chainlink feed, and tracks scaled B20 balances.</p>
           </article>
@@ -300,10 +300,10 @@ export default function Page() {
         <article className="col-span-2 rounded-2xl border border-[#e3dfd7] bg-white p-6 max-md:col-span-1">
           <div className="flex items-start justify-between gap-5">
             <div>
-              <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#ff4f18]">LIVE CIRCLE</p>
+              <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#0052FF]">LIVE CIRCLE</p>
               <h2 className="mt-1 text-2xl font-bold tracking-tight">{vaultData?.name ?? "Connect to load vault"}</h2>
             </div>
-            <span className="rounded-full bg-[#fff0eb] px-3 py-2 text-[10px] font-extrabold tracking-widest text-[#ef4b19]">B20 EQUITY</span>
+            <span className="rounded-full bg-[#EFF6FF] px-3 py-2 text-[10px] font-extrabold tracking-widest text-[#0052FF]">B20 EQUITY</span>
           </div>
           <div className="mt-6 grid grid-cols-3 gap-6 border-t border-[#ece9e3] pt-5 max-md:gap-3">
             <div>
@@ -341,11 +341,11 @@ export default function Page() {
         </article>
 
         <article className="rounded-2xl border border-[#e3dfd7] bg-white p-6">
-          <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#ff4f18]">CONTRIBUTE</p>
+          <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#0052FF]">CONTRIBUTE</p>
           <h2 className="mt-1 text-2xl font-bold tracking-tight">Add to the pool</h2>
           <p className="mt-2 text-sm leading-relaxed text-[#77736c]">Approve Base USDC, then deposit it into the circle vault.</p>
           <label className="mt-5 block text-[11px] font-bold text-[#77736c]">USDC amount</label>
-          <input value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="mt-2 w-full rounded-[9px] border border-[#e1ded7] bg-[#f7f6f3] p-3 outline-none focus:border-[#ff4f18] focus:ring-2 focus:ring-[#ff4f1820]" />
+          <input value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="mt-2 w-full rounded-[9px] border border-[#e1ded7] bg-[#f7f6f3] p-3 outline-none focus:border-[#0052FF] focus:ring-2 focus:ring-[#0052FF20]" />
           <button onClick={deposit} className="mt-5 w-full rounded-[10px] bg-[#101114] py-3 text-[13px] font-bold text-white hover:opacity-80">
             Approve and deposit
           </button>
@@ -354,20 +354,20 @@ export default function Page() {
         <article className="col-span-2 rounded-2xl border border-[#e3dfd7] bg-white p-6 max-md:col-span-1">
           <div className="flex items-start justify-between gap-5">
             <div>
-              <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#ff4f18]">TOKENIZED STOCK ORDER</p>
+              <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#0052FF]">TOKENIZED STOCK ORDER</p>
               <h2 className="mt-1 text-2xl font-bold tracking-tight">Propose and execute a buy</h2>
             </div>
-            <span className="rounded-full bg-[#fff0eb] px-3 py-2 text-[10px] font-extrabold tracking-widest text-[#ef4b19]">AERODROME ROUTE</span>
+            <span className="rounded-full bg-[#EFF6FF] px-3 py-2 text-[10px] font-extrabold tracking-widest text-[#0052FF]">AERODROME ROUTE</span>
           </div>
           <p className="mt-2 max-w-[520px] text-sm leading-relaxed text-[#77736c]">The quote is read from the configured Aerodrome router. The proposal stores the router, asset, amount, and minimum output before anyone votes.</p>
           <div className="mt-4 grid grid-cols-3 gap-3 max-md:grid-cols-1">
             <div>
               <label className="block text-[11px] font-bold text-[#77736c]">USDC amount</label>
-              <input value={orderAmount} onChange={(e) => setOrderAmount(e.target.value)} className="mt-2 w-full rounded-[9px] border border-[#e1ded7] bg-[#f7f6f3] p-3 outline-none focus:border-[#ff4f18] focus:ring-2 focus:ring-[#ff4f1820]" />
+              <input value={orderAmount} onChange={(e) => setOrderAmount(e.target.value)} className="mt-2 w-full rounded-[9px] border border-[#e1ded7] bg-[#f7f6f3] p-3 outline-none focus:border-[#0052FF] focus:ring-2 focus:ring-[#0052FF20]" />
             </div>
             <div>
               <label className="block text-[11px] font-bold text-[#77736c]">Slippage (bps)</label>
-              <input value={slippage} onChange={(e) => setSlippage(e.target.value)} className="mt-2 w-full rounded-[9px] border border-[#e1ded7] bg-[#f7f6f3] p-3 outline-none focus:border-[#ff4f18] focus:ring-2 focus:ring-[#ff4f1820]" />
+              <input value={slippage} onChange={(e) => setSlippage(e.target.value)} className="mt-2 w-full rounded-[9px] border border-[#e1ded7] bg-[#f7f6f3] p-3 outline-none focus:border-[#0052FF] focus:ring-2 focus:ring-[#0052FF20]" />
             </div>
             <div>
               <label className="block text-[11px] font-bold text-[#77736c]">Proposal ID</label>
@@ -382,11 +382,11 @@ export default function Page() {
               Execute approved proposal
             </button>
           </div>
-          <p className="mt-4 min-h-[20px] text-[13px] text-[#ef4b19]">{quoteResult}</p>
+          <p className="mt-4 min-h-[20px] text-[13px] text-[#0052FF]">{quoteResult}</p>
         </article>
 
         <article className="rounded-2xl border border-[#e3dfd7] bg-white p-6">
-          <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#ff4f18]">GOVERNANCE</p>
+          <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#0052FF]">GOVERNANCE</p>
           <h2 className="mt-1 text-2xl font-bold tracking-tight">Vote on a proposal</h2>
           <p className="mt-2 text-sm leading-relaxed text-[#77736c]">Use the proposal ID posted by CIRCLA in Telegram.</p>
           <label className="mt-4 block text-[11px] font-bold text-[#77736c]">Proposal ID</label>
@@ -404,7 +404,7 @@ export default function Page() {
         <article className="col-span-2 rounded-2xl border border-[#e3dfd7] bg-white p-6 max-md:col-span-1">
           <div className="flex items-start justify-between gap-5">
             <div>
-              <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#ff4f18]">WITHDRAWAL</p>
+              <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#0052FF]">WITHDRAWAL</p>
               <h2 className="mt-1 text-2xl font-bold tracking-tight">Exit with a wallet check</h2>
             </div>
             <span className="rounded-full bg-[#f1f0ed] px-3 py-2 text-[10px] font-extrabold tracking-widest text-[#77736c]">ELIGIBILITY AWARE</span>
