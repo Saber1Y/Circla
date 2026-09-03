@@ -1,5 +1,7 @@
 "use client";
 
+import { ShieldCheck, ShieldX, Timer, Shield } from "lucide-react";
+
 export default function SecurityDiagram() {
   return (
     <div className="overflow-hidden rounded-[24px] border border-[#e3dfd7] bg-white p-6 md:p-8">
@@ -22,8 +24,13 @@ export default function SecurityDiagram() {
               <div className="h-6 w-[2px] bg-[#ff4f18] opacity-60" />
             </div>
             <div className="animate-slide-in rounded-xl border-2 border-[#101114] bg-[#101114] p-3 text-white delay-200">
-              <p className="text-xs font-bold">B20 Policy Registry Hook</p>
-              <p className="mt-1 font-mono text-[10px] text-white/60">policyId(TRANSFER_RECEIVER_POLICY) → isAuthorized()</p>
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-white">
+                  <Shield className="h-3.5 w-3.5" />
+                </span>
+                <p className="text-xs font-bold">B20 Policy Registry Hook</p>
+              </div>
+              <p className="mt-2 font-mono text-[10px] text-white/60">policyId(TRANSFER_RECEIVER_POLICY) → isAuthorized()</p>
               <p className="mt-1 text-[11px] text-white/70">Crosses to Base Network Enclaves →</p>
             </div>
           </div>
@@ -34,20 +41,26 @@ export default function SecurityDiagram() {
           <p className="text-[10px] font-extrabold tracking-widest text-emerald-700">BASE NETWORK ENCLAVES</p>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <div className="animate-slide-in rounded-xl border border-emerald-200 bg-white p-3 delay-300">
-              <div className="mb-1.5 h-2 w-2 rounded-full bg-emerald-500" />
+              <div className="mb-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                <ShieldCheck className="h-4 w-4" />
+              </div>
               <p className="text-xs font-bold text-emerald-800">Authorized</p>
               <p className="mt-1 text-[11px] leading-relaxed text-emerald-700/70">Transfer Stock</p>
               <p className="mt-1 font-mono text-[10px] text-emerald-600">→ B20 transfer succeeds</p>
             </div>
             <div className="animate-slide-in rounded-xl border border-red-200 bg-white p-3 delay-400">
-              <div className="mb-1.5 h-2 w-2 rounded-full bg-red-500" />
+              <div className="mb-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-red-50 text-red-600">
+                <ShieldX className="h-4 w-4" />
+              </div>
               <p className="text-xs font-bold text-red-800">Denied</p>
               <p className="mt-1 text-[11px] leading-relaxed text-red-700/70">Liquidate to USDC</p>
               <p className="mt-1 font-mono text-[10px] text-red-600">→ Aerodrome swap → USDC</p>
             </div>
             <div className="col-span-2 animate-slide-in rounded-xl border border-amber-200 bg-amber-50 p-3 delay-500">
               <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-amber-500" />
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                  <Timer className="h-4 w-4" />
+                </div>
                 <p className="text-xs font-bold text-amber-800">Chainlink Oracle Wrapper</p>
                 <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">72hr Weekend Grace</span>
               </div>
