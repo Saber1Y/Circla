@@ -1,10 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import dynamic from "next/dynamic";
 import { motion, useReducedMotion } from "framer-motion";
 import { Users, LineChart, Smartphone, Play } from "lucide-react";
-import { useTMA } from "@/hooks/useTMA";
 
 const WorkflowDiagram = dynamic(() => import("@/components/WorkflowDiagram"), {
   ssr: false,
@@ -24,7 +22,6 @@ const vaultLink = VAULT ? `${EXPLORER}/address/${VAULT}` : "#";
 const isLive = Boolean(VAULT && VAULT.startsWith("0x"));
 
 export default function Landing() {
-  const { isTMA } = useTMA();
   const reduceMotion = useReducedMotion();
   const anim = (delay = 0) =>
     reduceMotion
@@ -59,8 +56,8 @@ export default function Landing() {
           <a href="#how" className="text-xs font-semibold text-[#77736c] hover:text-[#101114]">
             How it works
           </a>
-          <a href="#app" className="text-xs font-semibold text-[#77736c] hover:text-[#101114]">
-            Web app
+          <a href="#guardrails" className="text-xs font-semibold text-[#77736c] hover:text-[#101114]">
+            Security
           </a>
           <a
             href={vaultLink}
@@ -71,12 +68,14 @@ export default function Landing() {
             Vault ↗
           </a>
         </nav>
-        <Link
-          href="/app"
+        <a
+          href={vaultLink}
+          target="_blank"
+          rel="noreferrer"
           className="hidden rounded-full border border-[#e3dfd7] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#101114] hover:bg-[#f5f3ee] md:inline-flex"
         >
-          Open Web Dashboard
-        </Link>
+          Live vault ↗
+        </a>
         <a
           href={TG_URL}
           target="_blank"
@@ -89,24 +88,7 @@ export default function Landing() {
 
       {/* 1. Hero — split screen: content left, live product visual right */}
       <section className="grid items-center gap-10 py-12 md:grid-cols-[1.02fr_0.98fr] md:py-16">
-        {isTMA ? (
-          <motion.div {...anim(0.1)} className="rounded-2xl border border-blue-200 bg-blue-50 p-6">
-            <p className="font-[var(--font-sora)] text-sm font-semibold text-[#0052FF]">
-              Opening in Telegram…
-            </p>
-            <p className="mt-1 text-xs text-[#77736c]">
-              Routing to your syndicate dashboard with Telegram theme.
-            </p>
-            <Link
-              href="/syndicate/demo"
-              className="mt-4 inline-flex rounded-full bg-[#0052FF] px-6 py-3 text-sm font-bold text-white"
-            >
-              Go to syndicate
-            </Link>
-          </motion.div>
-        ) : (
-          <>
-            <div className="max-md:text-center">
+        <div className="max-md:text-center">
               <motion.div
                 {...anim(0.1)}
                 className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-[#0052FF]"
@@ -136,12 +118,14 @@ export default function Landing() {
                 >
                   Launch in Telegram
                 </a>
-                <Link
-                  href="/app"
+                <a
+                  href={vaultLink}
+                  target="_blank"
+                  rel="noreferrer"
                   className="rounded-full border border-[#e3dfd7] bg-white px-7 py-3.5 text-sm font-semibold text-[#101114] transition hover:bg-[#f5f3ee] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052FF] active:scale-[0.98]"
                 >
-                  Open Web Dashboard
-                </Link>
+                  View live vault
+                </a>
               </motion.div>
             </div>
             <motion.div {...anim(0.3)} className="relative max-md:mt-4" aria-label="Live syndicate preview">
@@ -207,9 +191,6 @@ export default function Landing() {
                 <span className="font-mono text-[11px] font-semibold text-[#101114]">/contribute 50 USDC ✓</span>
               </div>
             </motion.div>
-          </>
-        )}
-        {isTMA ? null : (
           <div className="mt-10 border-t border-[#e3dfd7] pt-6 md:col-span-2">
             <div className="grid grid-cols-3 gap-4 text-left max-md:grid-cols-1 max-md:text-center">
               <div>
@@ -250,7 +231,6 @@ export default function Landing() {
               ))}
             </div>
           </div>
-        )}
       </section>
 
       {/* Loom demo — judge portal */}
@@ -352,8 +332,8 @@ export default function Landing() {
               Chat and web, same vault.
             </h3>
             <p className="mt-1 max-w-[560px] font-[var(--font-sora)] text-[11px] leading-relaxed text-[#77736c]">
-              One Next.js codebase — Telegram Mini App slide-over + desktop web — viem/wagmi + Coinbase
-              Smart Wallet passkeys. Same design system as the syndicate loop.
+              Chat and web share one design system — Telegram-first, backed by the same CirclaVault on
+              Base. Same design system as the syndicate loop.
             </p>
           </div>
           <span className="hidden rounded-full bg-[#f5f3ee] px-3 py-1.5 text-[11px] font-bold text-[#77736c] md:inline">
@@ -461,8 +441,8 @@ export default function Landing() {
             <div className="rounded-2xl border border-[#e3dfd7] bg-[#fcfaf8] p-4">
               <p className="text-xs font-bold text-[#101114]">B20-aware portfolio</p>
               <p className="mt-1 text-[12px] leading-relaxed text-[#77736c]">
-                Donut of NVDAc/AAPLc + idle USDC, multiplier-adjusted. Same component on TMA and desktop —{" "}
-                <span className="font-mono text-[11px]">var(--tg-theme-bg-color)</span> aware.
+                Donut of NVDAc/AAPLc + idle USDC, multiplier-adjusted. Live onchain state, rendered for the
+                group.
               </p>
             </div>
             <div className="rounded-2xl border border-[#e3dfd7] bg-[#fcfaf8] p-4">
@@ -491,12 +471,12 @@ export default function Landing() {
       </motion.section>
 
       {/* 4. Workflow Diagram */}
-      <section aria-label="Syndicate loop" className="mt-6">
+      <section id="loop" aria-label="Syndicate loop" className="mt-6">
         <WorkflowDiagram />
       </section>
 
       {/* 5. Security Diagram */}
-      <section aria-label="Security and guardrails" className="mt-6">
+      <section id="guardrails" aria-label="Security and guardrails" className="mt-6">
         <SecurityDiagram />
       </section>
 
@@ -506,8 +486,8 @@ export default function Landing() {
           Start your syndicate today.
         </h2>
         <p className="mx-auto mt-3 max-w-[520px] font-[var(--font-sora)] text-[16px] leading-6 text-[#77736c]">
-          Generate a shareable link and fund your club in seconds. Judges can test directly in the browser with
-          Coinbase Wallet — no Telegram group required.
+          Generate a shareable link and fund your club in seconds. Everything runs through Telegram — the vault
+          enforces every group decision on Base.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <a
@@ -518,25 +498,26 @@ export default function Landing() {
           >
             Launch in Telegram
           </a>
-          <Link
-            href="/app"
+          <a
+            href={vaultLink}
+            target="_blank"
+            rel="noreferrer"
             className="rounded-full border border-[#e3dfd7] bg-white px-7 py-3.5 text-sm font-semibold text-[#101114] transition hover:bg-[#f5f3ee] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052FF] active:scale-[0.98]"
           >
-            Open Web Dashboard
-          </Link>
+            View live vault
+          </a>
         </div>
         <p className="mx-auto mt-6 max-w-[520px] font-[var(--font-sora)] text-[12px] leading-relaxed text-[#918d85]">
-          Web app structure: <span className="font-semibold text-[#5e5b57]">Hub (/)</span> →{" "}
-          <span className="font-semibold text-[#5e5b57]">Syndicate (/syndicate/[id])</span> →{" "}
-          <span className="font-semibold text-[#5e5b57]">Portfolio & Withdraw (/portfolio)</span> — same
-          viem/wagmi codebase for desktop and TMA.
+          How it works: <span className="font-semibold text-[#5e5b57]">Pool USDC</span> →{" "}
+          <span className="font-semibold text-[#5e5b57]">Vote in chat</span> →{" "}
+          <span className="font-semibold text-[#5e5b57]">Own B20 stocks</span> — quorum-gated, Basescan-verified.
         </p>
       </section>
 
       <footer className="border-t border-[#e3dfd7] py-6 text-center">
         <p className="mx-auto max-w-[720px] font-[var(--font-sora)] text-[11px] leading-relaxed text-[#b8b4ad]">
           Not available for US users. CIRCLA interacts with public smart contracts. Trading involves risk. View
-          live contracts on Basescan. Telegram theme adapts via var(--tg-theme-bg-color).
+          live contracts on Basescan.
         </p>
         <p className="mt-2 flex flex-wrap justify-center gap-4 text-[11px] text-[#918d85]">
           <a href={vaultLink} target="_blank" className="hover:underline">
@@ -548,9 +529,6 @@ export default function Landing() {
           <a href={TG_URL} target="_blank" className="hover:underline">
             Telegram
           </a>
-          <Link href="/app" className="hover:underline">
-            Web App
-          </Link>
         </p>
       </footer>
     </main>
