@@ -1,86 +1,187 @@
 "use client";
 
-export default function WorkflowDiagram() {
+import ReactFlow, { Background, Controls, Handle, Position, type Node, type Edge } from "reactflow";
+import "reactflow/dist/style.css";
+import { Webhook, GitBranch, Clock3, Send, MessageCircleMore, Check } from "lucide-react";
+
+type WorkflowNodeData = {
+  label: string;
+  sublabel?: string;
+  icon: React.ReactNode;
+  iconBg: string;
+  iconColor: string;
+  done?: boolean;
+};
+
+function WorkflowNode({ data }: { data: WorkflowNodeData }) {
   return (
-    <div className="overflow-hidden rounded-[24px] border border-[#e3dfd7] bg-white p-6 md:p-8">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="relative flex w-[148px] flex-col items-center">
+      <div className="flex h-[78px] w-[148px] flex-col items-center justify-center rounded-[16px] border border-[#e5e3df] bg-white shadow-[0_4px_16px_rgba(16,17,20,0.06)]">
+        <div className={`flex h-8 w-8 items-center justify-center rounded-full ${data.iconBg} ${data.iconColor}`}>{data.icon}</div>
+        <Handle type="target" position={Position.Left} className="!h-2 !w-2 !border-2 !border-white !bg-[#d6d3cd]" />
+        <Handle type="source" position={Position.Right} className="!h-2 !w-2 !border-2 !border-white !bg-[#d6d3cd]" />
+        {data.done && (
+          <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm">
+            <Check className="h-3 w-3" strokeWidth={3} />
+          </span>
+        )}
+      </div>
+      <p className="mt-2 text-center text-[11px] font-bold tracking-wide text-[#101114]">{data.label}</p>
+      {data.sublabel && <p className="text-center text-[10px] leading-tight text-[#918d85]">{data.sublabel}</p>}
+    </div>
+  );
+}
+
+const nodeTypes = { workflow: WorkflowNode };
+
+export default function WorkflowDiagram() {
+  const nodes: Node[] = [
+    {
+      id: "webhook",
+      type: "workflow",
+      position: { x: 0, y: 80 },
+      data: {
+        label: "Telegram",
+        sublabel: "Group message",
+        icon: <Webhook className="h-4 w-4" />,
+        iconBg: "bg-emerald-50",
+        iconColor: "text-emerald-600",
+        done: true,
+      },
+    },
+    {
+      id: "ifelse",
+      type: "workflow",
+      position: { x: 240, y: 80 },
+      data: {
+        label: "Quorum Check",
+        sublabel: "If / Else",
+        icon: <GitBranch className="h-4 w-4" />,
+        iconBg: "bg-orange-50",
+        iconColor: "text-[#ff4f18]",
+        done: true,
+      },
+    },
+    {
+      id: "wait",
+      type: "workflow",
+      position: { x: 480, y: 80 },
+      data: {
+        label: "Governance",
+        sublabel: "Wait · 30m",
+        icon: <Clock3 className="h-4 w-4" />,
+        iconBg: "bg-stone-100",
+        iconColor: "text-stone-500",
+      },
+    },
+    {
+      id: "swap",
+      type: "workflow",
+      position: { x: 720, y: 0 },
+      data: {
+        label: "Aerodrome Swap",
+        sublabel: "USDC → NVDAc",
+        icon: <Send className="h-4 w-4" />,
+        iconBg: "bg-blue-50",
+        iconColor: "text-blue-600",
+      },
+    },
+    {
+      id: "receipt",
+      type: "workflow",
+      position: { x: 720, y: 160 },
+      data: {
+        label: "Telegram Receipt",
+        sublabel: "Bot posts proof",
+        icon: <MessageCircleMore className="h-4 w-4" />,
+        iconBg: "bg-violet-50",
+        iconColor: "text-violet-600",
+      },
+    },
+  ];
+
+  const edges: Edge[] = [
+    {
+      id: "e1",
+      source: "webhook",
+      target: "ifelse",
+      type: "smoothstep",
+      style: { stroke: "#d6d3cd", strokeWidth: 1.5, strokeDasharray: "6 6" },
+    },
+    {
+      id: "e2-yes",
+      source: "ifelse",
+      target: "wait",
+      sourceHandle: null as any,
+      type: "smoothstep",
+      label: "Yes",
+      labelStyle: { fill: "#059669", fontSize: 10, fontWeight: 700 },
+      labelBgStyle: { fill: "#ecfdf5", stroke: "#a7f3d0" },
+      style: { stroke: "#10b981", strokeWidth: 1.5, strokeDasharray: "6 6" },
+    },
+    {
+      id: "e3-no",
+      source: "ifelse",
+      target: "wait",
+      type: "smoothstep",
+      label: "No",
+      labelStyle: { fill: "#dc2626", fontSize: 10, fontWeight: 700 },
+      labelBgStyle: { fill: "#fef2f2", stroke: "#fecaca" },
+      style: { stroke: "#ef4444", strokeWidth: 1.5, strokeDasharray: "6 6" },
+    },
+    {
+      id: "e4",
+      source: "wait",
+      target: "swap",
+      type: "smoothstep",
+      style: { stroke: "#3b82f6", strokeWidth: 1.5, strokeDasharray: "6 6" },
+    },
+    {
+      id: "e5",
+      source: "wait",
+      target: "receipt",
+      type: "smoothstep",
+      style: { stroke: "#8b5cf6", strokeWidth: 1.5, strokeDasharray: "6 6" },
+    },
+  ];
+
+  return (
+    <div className="overflow-hidden rounded-[24px] border border-[#e3dfd7] bg-white">
+      <div className="flex items-center justify-between border-b border-[#f0ede8] px-6 py-4">
         <div>
           <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#ff4f18]">SYNDICATE LOOP</p>
-          <h3 className="mt-1 font-[var(--font-newsreader)] text-xl font-medium tracking-tight text-[#101114]">Chat intent → on-chain B20 trade</h3>
+          <h3 className="mt-1 font-[var(--font-newsreader)] text-[15px] font-medium tracking-tight text-[#101114]">Telegram intent → B20 execution</h3>
         </div>
-        <span className="hidden rounded-full bg-[#f5f3ee] px-3 py-1.5 text-[11px] font-bold text-[#77736c] md:inline">Aerodrome · Base</span>
+        <span className="hidden rounded-full bg-[#f5f3ee] px-3 py-1.5 text-[11px] font-bold text-[#77736c] md:inline">React Flow · Base Sepolia proof</span>
       </div>
 
-      {/* Mobile: stacked, Desktop: flow */}
-      <div className="relative grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto_1fr_auto_1fr]">
-        {/* Step 1 */}
-        <div className="animate-slide-in rounded-2xl border border-[#e3dfd7] bg-[#fffaf8] p-4 delay-100">
-          <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-full bg-[#101114] text-[11px] font-bold text-white">01</div>
-          <p className="text-xs font-bold tracking-wide text-[#101114]">Chat Intent</p>
-          <p className="mt-1 font-mono text-[11px] text-[#77736c]">/contribute 50 USDC</p>
-          <p className="mt-2 text-[11px] leading-relaxed text-[#77736c]">Member sends command in Telegram</p>
-        </div>
-
-        <div className="hidden items-center md:flex">
-          <div className="h-[2px] w-8 bg-[#ff4f18] opacity-60" />
-          <div className="h-0 w-0 border-y-4 border-l-4 border-y-transparent border-l-[#ff4f18] opacity-60" />
-        </div>
-
-        {/* Step 2 */}
-        <div className="animate-slide-in rounded-2xl border border-[#e3dfd7] bg-white p-4 delay-200">
-          <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-full bg-[#101114] text-[11px] font-bold text-white">02</div>
-          <p className="text-xs font-bold tracking-wide text-[#101114]">TMA Wallet Auth</p>
-          <p className="mt-1 text-[11px] text-[#77736c]">Passkey / FaceID</p>
-          <p className="mt-2 text-[11px] leading-relaxed text-[#77736c]">Coinbase Smart Wallet inside Telegram</p>
-        </div>
-
-        <div className="hidden items-center md:flex">
-          <div className="h-[2px] w-8 bg-[#101114] opacity-20" />
-          <div className="h-0 w-0 border-y-4 border-l-4 border-y-transparent border-l-[#101114] opacity-20" />
-        </div>
-
-        {/* Step 3 */}
-        <div className="animate-slide-in rounded-2xl border-2 border-[#101114] bg-[#101114] p-4 text-white delay-300">
-          <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-full bg-[#ff4f18] text-[11px] font-bold text-white">03</div>
-          <p className="text-xs font-bold tracking-wide">CirclaVault</p>
-          <p className="mt-1 text-[11px] text-white/70">Threshold check</p>
-          <p className="mt-2 text-[11px] leading-relaxed text-white/60">Aggregates pooled USDC, validates quorum</p>
-        </div>
+      <div className="h-[340px] w-full bg-white">
+        <ReactFlow
+          nodes={nodes as any}
+          edges={edges as any}
+          nodeTypes={nodeTypes as any}
+          fitView
+          fitViewOptions={{ padding: 0.2 }}
+          proOptions={{ hideAttribution: true }}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={false}
+          panOnScroll
+          zoomOnScroll
+          className="bg-white"
+        >
+          <Background color="#f5f3ee" gap={20} size={1} />
+          <Controls showInteractive={false} className="!rounded-xl !border-[#e3dfd7] !shadow-sm" />
+        </ReactFlow>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto_1fr]">
-        <div className="flex items-center justify-center md:justify-end">
-          <div className="flex items-center gap-2 text-[11px] font-semibold text-[#ff4f18]">
-            <span className="hidden md:inline">Swap</span>
-            <div className="flex items-center">
-              <div className="h-[2px] w-6 bg-emerald-500" />
-              <div className="h-0 w-0 border-y-4 border-l-4 border-y-transparent border-l-emerald-500" />
-            </div>
-          </div>
-        </div>
-        <div className="animate-slide-in rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center delay-400">
-          <p className="text-xs font-bold text-emerald-700">Aerodrome DEX</p>
-          <p className="mt-1 font-mono text-[11px] text-emerald-600">USDC → NVDAc</p>
-          <p className="mt-1 text-[11px] text-emerald-600/70">8 decimals · B20 · Base</p>
-        </div>
-        <div className="flex items-center justify-center md:justify-start">
-          <div className="flex items-center gap-2 text-[11px] font-semibold text-[#3b82f6]">
-            <div className="flex items-center">
-              <div className="h-[2px] w-6 bg-[#3b82f6]" />
-              <div className="h-0 w-0 border-y-4 border-l-4 border-y-transparent border-l-[#3b82f6]" />
-            </div>
-            <span className="hidden md:inline">Receipt</span>
-          </div>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#f0ede8] bg-[#fcfaf8] px-6 py-3 text-[10px] tracking-wide text-[#918d85]">
+        <span>
+          <span className="font-bold text-[#101114]">Webhook</span> → <span className="font-bold text-[#ff4f18]">If / Else</span> → <span className="font-bold text-stone-500">Wait</span> →{" "}
+          <span className="font-bold text-blue-600">Aerodrome</span> <span className="text-[#918d85]">/</span> <span className="font-bold text-violet-600">Telegram</span>
+        </span>
+        <span className="hidden md:inline">Yes = quorum met (green) · No = blocked (red) · Dashed = async</span>
       </div>
-
-      <div className="animate-slide-in mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-center delay-500">
-        <p className="text-xs font-bold text-blue-700">Social Receipt</p>
-        <p className="mt-1 font-mono text-[11px] text-blue-600">Bot posts to group → “Swap executed! 1.14 NVDAc @ $250”</p>
-        <p className="mt-1 text-[11px] text-blue-600/60">scaledBalanceOf × Chainlink total-return feed</p>
-      </div>
-
-      <p className="mt-4 text-center text-[10px] tracking-wide text-[#918d85]">Edge colors: <span className="text-[#ff4f18]">■ user action</span> · <span className="text-emerald-500">■ DEX execution</span> · <span className="text-[#3b82f6]">■ bot message</span></p>
     </div>
   );
 }
