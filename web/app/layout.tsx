@@ -21,7 +21,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "CIRCLA — Chat-Native Equity Syndicates",
-  description: "Pool USDC with friends, automate stock investments, and manage fractional portfolios of US equities — directly inside Telegram.",
+  description:
+    "Pool USDC with friends, automate stock investments, and manage fractional portfolios of US equities — directly inside Telegram.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -33,23 +34,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `
               (function(){
                 try{
-                  var isTMA = !!window.Telegram?.WebApp;
-                  if(isTMA){
+                  var tg = window.Telegram && window.Telegram.WebApp;
+                  if(tg){
                     document.documentElement.setAttribute('data-tma','true');
-                    var tg = window.Telegram.WebApp;
                     tg.ready && tg.ready();
                     tg.expand && tg.expand();
+                    var tp = tg.themeParams || {};
+                    var root = document.documentElement;
+                    if(tp.bg_color) root.style.setProperty('--tg-theme-bg-color', tp.bg_color);
+                    if(tp.text_color) root.style.setProperty('--tg-theme-text-color', tp.text_color);
+                    if(tp.hint_color) root.style.setProperty('--tg-theme-hint-color', tp.hint_color);
                   }
-                  // IP-blocking placeholder: hook into layout wrapper
-                  var blocked = false; // TODO: wire to Vercel Edge /api/geo
-                  if(blocked) document.documentElement.setAttribute('data-blocked','us');
                 }catch(e){}
               })();
             `,
           }}
         />
       </head>
-      <body className="font-sans bg-[var(--tg-theme-bg-color,#f5f3ee)] text-[#101114] antialiased">{children}</body>
+      <body className="bg-[var(--tg-theme-bg-color,#f5f3ee)] font-sans text-[#101114] antialiased">
+        {children}
+      </body>
     </html>
   );
 }
