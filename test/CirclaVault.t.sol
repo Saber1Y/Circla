@@ -177,7 +177,7 @@ contract CirclaVaultTest is Test {
         _deposit(bob, 50e6);
 
         vm.prank(alice);
-        uint256 proposalId = vault.createProposal(address(stock), 100e6, 1e6);
+        uint256 proposalId = vault.createProposal(address(stock), address(router), 100e6, 1e6);
         vm.prank(alice);
         vault.vote(proposalId, true);
         vm.prank(bob);
@@ -235,7 +235,7 @@ contract CirclaVaultTest is Test {
     function testCannotExecuteWithoutQuorum() public {
         _deposit(alice, 100e6);
         vm.prank(alice);
-        uint256 proposalId = vault.createProposal(address(stock), 50e6, 1e6);
+        uint256 proposalId = vault.createProposal(address(stock), address(router), 50e6, 1e6);
         vm.prank(alice);
         vault.vote(proposalId, true);
 
@@ -257,7 +257,7 @@ contract CirclaVaultTest is Test {
         _deposit(alice, 50e6);
         _deposit(bob, 50e6);
         vm.prank(alice);
-        uint256 proposalId = vault.createProposal(address(stock), 100e6, 1e6);
+        uint256 proposalId = vault.createProposal(address(stock), address(router), 100e6, 1e6);
         vm.prank(alice);
         vault.vote(proposalId, true);
         vm.prank(bob);
