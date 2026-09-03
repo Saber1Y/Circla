@@ -1,5 +1,5 @@
 import {createPublicClient, createWalletClient, custom, formatUnits, http, parseUnits} from 'viem';
-import {base} from 'viem/chains';
+import {base, baseSepolia} from 'viem/chains';
 import './styles.css';
 
 const ZERO = '0x0000000000000000000000000000000000000000';
@@ -26,7 +26,8 @@ const vaultAbi = [
 const erc20Abi = [{type: 'function', name: 'approve', stateMutability: 'nonpayable', inputs: [{name: 'spender', type: 'address'}, {name: 'amount', type: 'uint256'}], outputs: [{type: 'bool'}]}];
 const routerAbi = [{type: 'function', name: 'getAmountsOut', stateMutability: 'view', inputs: [{name: 'amountIn', type: 'uint256'}, {name: 'routes', type: 'tuple[]', components: [{name: 'from', type: 'address'}, {name: 'to', type: 'address'}, {name: 'stable', type: 'bool'}, {name: 'factory', type: 'address'}]}], outputs: [{name: 'amounts', type: 'uint256[]'}]}];
 
-const publicClient = createPublicClient({chain: base, transport: http(import.meta.env.VITE_BASE_RPC_URL ?? 'https://mainnet.base.org')});
+const chain = (import.meta.env.VITE_BASE_RPC_URL ?? '').includes('sepolia') ? baseSepolia : base;
+const publicClient = createPublicClient({chain, transport: http(import.meta.env.VITE_BASE_RPC_URL ?? 'https://mainnet.base.org')});
 let walletClient;
 let account;
 
@@ -89,9 +90,9 @@ $('executeOrder').addEventListener('click', executeProposal);
 
 async function connect() {
   if (!window.ethereum) return setActivity('Install a Base-compatible wallet to continue.', true);
-  walletClient = createWalletClient({chain: base, transport: custom(window.ethereum)});
+  walletClient = createWalletClient({chain, transport: custom(window.ethereum)});
   [account] = await walletClient.requestAddresses();
-  await walletClient.switchChain({id: base.id});
+  await walletClient.switchChain({id: chain.id});
   $('connect').textContent = `${account.slice(0, 6)}...${account.slice(-4)}`;
   $('walletLabel').textContent = `${account.slice(0, 6)}...${account.slice(-4)} connected`;
   $('networkDot').classList.add('active');
@@ -171,7 +172,7 @@ async function executeProposal() {
 async function send(functionName, args, address = VAULT) {
   requireWallet();
   try {
-    const hash = await walletClient.writeContract({address, abi: address === USDC ? erc20Abi : vaultAbi, functionName, args, account, chain: base});
+    const hash = await walletClient.writeContract({address, abi: address === USDC ? erc20Abi : vaultAbi, functionName, args, account, chain});
     setActivity(`Submitted ${functionName}. Waiting for confirmation...`);
     const receipt = await publicClient.waitForTransactionReceipt({hash});
     setActivity(`${functionName} confirmed: ${hash}`);
