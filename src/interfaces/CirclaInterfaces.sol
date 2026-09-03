@@ -34,6 +34,8 @@ interface IAerodromeRouterLike {
         address factory;
     }
 
+    function getAmountsOut(uint256 amountIn, Route[] calldata routes) external view returns (uint256[] memory amounts);
+
     function swapExactTokensForTokens(
         uint256 amountIn,
         uint256 amountOutMin,
