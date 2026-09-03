@@ -23,6 +23,7 @@ export const metadata: Metadata = {
   title: "CIRCLA — Chat-Native Equity Syndicates",
   description:
     "Pool USDC with friends, automate stock investments, and manage fractional portfolios of US equities — directly inside Telegram.",
+  icons: { icon: "/icon.svg" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
