@@ -1,5 +1,5 @@
 import {createPublicClient, http, parseAbi} from 'viem';
-import {base} from 'viem/chains';
+import {base, baseSepolia} from 'viem/chains';
 
 const vaultAbi = parseAbi([
   'function circleName() view returns (string)',
@@ -11,7 +11,8 @@ const vaultAbi = parseAbi([
 ]);
 
 export function createBaseClient({rpcUrl = process.env.BASE_RPC_URL ?? 'https://mainnet.base.org'} = {}) {
-  return createPublicClient({chain: base, transport: http(rpcUrl)});
+  const chain = rpcUrl.includes('sepolia') ? baseSepolia : base;
+  return createPublicClient({chain, transport: http(rpcUrl)});
 }
 
 export async function readVaultSnapshot(client, vaultAddress) {
