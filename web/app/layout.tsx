@@ -28,33 +28,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${newsreader.variable} ${sora.variable} ${inter.variable}`}>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function(){
-                try{
-                  var tg = window.Telegram && window.Telegram.WebApp;
-                  var real = tg && ((typeof tg.initData === 'string' && tg.initData.length > 0) || (tg.platform && tg.platform !== 'unknown' && tg.initDataUnsafe && tg.initDataUnsafe.user));
-                  if(real){
-                    document.documentElement.setAttribute('data-tma','true');
-                    tg.ready && tg.ready();
-                    tg.expand && tg.expand();
-                    var tp = tg.themeParams || {};
-                    var root = document.documentElement;
-                    if(tp.bg_color) root.style.setProperty('--tg-theme-bg-color', tp.bg_color);
-                    if(tp.text_color) root.style.setProperty('--tg-theme-text-color', tp.text_color);
-                    if(tp.hint_color) root.style.setProperty('--tg-theme-hint-color', tp.hint_color);
-                  }
-                }catch(e){}
-              })();
-            `,
-          }}
-        />
-      </head>
-      <body className="bg-[var(--tg-theme-bg-color,#f5f3ee)] font-sans text-[#101114] antialiased">
-        {children}
-      </body>
+      <body className="bg-[#f5f3ee] font-sans text-[#101114] antialiased">{children}</body>
     </html>
   );
 }
