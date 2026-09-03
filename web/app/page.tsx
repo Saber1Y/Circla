@@ -72,61 +72,95 @@ export default function Landing() {
         </article>
       </section>
 
-      {/* 3. Product Showcase */}
-      <section className="mt-6 overflow-hidden rounded-[24px] border border-[#e3dfd7] bg-white p-3 md:p-4">
-        <div className="overflow-hidden rounded-2xl bg-[#f5f3ee] p-2">
-          <div className="aspect-[16/9] overflow-hidden rounded-2xl bg-gradient-to-br from-[#101114] via-[#1a1d24] to-[#2a2f3a] p-0">
-            {/* Placeholder dual-surface mock */}
-            <div className="flex h-full w-full">
-              <div className="flex flex-1 flex-col gap-2 p-4 md:p-6">
-                <div className="rounded-xl bg-white/10 p-3 backdrop-blur">
-                  <p className="font-mono text-[10px] text-white/60">Telegram • CIRCLA Syndicate</p>
-                  <p className="mt-2 rounded-full bg-[#ff4f18] px-2 py-1 font-mono text-[11px] text-white">/contribute 50 USDC ✓</p>
-                  <p className="mt-1.5 rounded-xl bg-white px-3 py-2 text-[11px] leading-relaxed text-[#101114]">Swap executed! 1.14 NVDAc @ $250 — <span className="font-mono text-[10px] text-[#77736c]">sepolia proof</span></p>
-                </div>
-                <div className="mt-auto flex gap-2">
-                  <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] text-white/70">B20 Multipliers</span>
-                  <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] text-white/70">Aerodrome</span>
+      {/* 3. Product Showcase — Architecture Canvas (SaaS Workflow Style) */}
+      <section className="mt-6 overflow-hidden rounded-[24px] border border-[#e3dfd7] bg-white">
+        <div className="flex items-center justify-between border-b border-[#f0ede8] px-6 py-4">
+          <div>
+            <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#ff4f18]">DUAL-SURFACE UI</p>
+            <h3 className="mt-1 font-[var(--font-newsreader)] text-[15px] font-medium tracking-tight text-[#101114]">Chat and web, same vault.</h3>
+            <p className="mt-1 max-w-[560px] font-[var(--font-sora)] text-[11px] leading-relaxed text-[#77736c]">One Next.js codebase — Telegram Mini App slide-over + desktop web — viem/wagmi + Coinbase Smart Wallet passkeys. Same design system as the syndicate loop.</p>
+          </div>
+          <span className="hidden rounded-full bg-[#f5f3ee] px-3 py-1.5 text-[11px] font-bold text-[#77736c] md:inline">Same vault · two surfaces</span>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 bg-[#fcfaf8] p-4 md:grid-cols-[1.15fr_380px] md:p-6">
+          {/* Left: Telegram canvas */}
+          <div className="rounded-2xl border-2 border-dashed border-[#e3dfd7] bg-white p-4 shadow-[0_2px_10px_rgba(16,17,20,0.04)]">
+            <p className="text-[10px] font-extrabold tracking-widest text-[#918d85]">TELEGRAM · CIRCLA SYNDICATE</p>
+            <div className="mt-3 space-y-2.5">
+              <div className="flex items-center gap-2 rounded-full bg-[#ff4f18] px-3 py-2 text-[11px] font-bold text-white">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[10px]">✓</span>/contribute 50 USDC ✓
+                <span className="ml-auto font-mono text-[10px] opacity-70">you</span>
+              </div>
+              <div className="rounded-2xl border border-[#e3dfd7] bg-[#f5f3ee] p-3">
+                <p className="font-[var(--font-sora)] text-[11px] font-bold leading-relaxed text-[#101114]">Swap executed! 1.14 NVDAc @ $250</p>
+                <p className="mt-1 flex items-center gap-1.5 font-mono text-[10px] text-[#77736c]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> sepolia proof · <a href={vaultLink} target="_blank" className="underline hover:text-[#101114]">Basescan</a> · scaledBalanceOf
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#e3dfd7] bg-white px-2.5 py-1 text-[10px] font-medium text-[#5e5b57]">◈ B20 Multipliers</span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#e3dfd7] bg-white px-2.5 py-1 text-[10px] font-medium text-[#5e5b57]">⇄ Aerodrome</span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#e3dfd7] bg-white px-2.5 py-1 text-[10px] font-medium text-[#5e5b57]">≡ Fractional Ledger</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Portfolio canvas */}
+          <div className="rounded-2xl border border-[#e3dfd7] bg-white p-5 shadow-[0_2px_10px_rgba(16,17,20,0.04)]">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-extrabold tracking-widest text-[#101114]">PORTFOLIO</p>
+              <span className="rounded-full bg-[#fff0eb] px-2 py-1 text-[10px] font-bold text-[#ff4f18]">Live</span>
+            </div>
+            <div className="mt-4 flex items-center gap-4">
+              <div className="relative h-[88px] w-[88px]">
+                <div className="absolute inset-0 rounded-full border-[10px] border-[#e3dfd7]" />
+                <div className="absolute inset-0 rounded-full border-[10px] border-[#ff4f18] border-r-transparent border-b-transparent" style={{ transform: "rotate(-45deg)" }} />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-[11px] font-bold text-[#101114]">B20</span>
                 </div>
               </div>
-              <div className="hidden w-[320px] flex-col gap-3 border-l border-white/10 bg-white p-4 md:flex">
-                <p className="text-[11px] font-bold tracking-widest text-[#101114]">PORTFOLIO</p>
-                <div className="flex items-center gap-3">
-                  <div className="h-16 w-16 rounded-full border-8 border-[#ff4f18] border-r-[#e3dfd7] border-b-[#e3dfd7]" />
-                  <div className="text-xs leading-relaxed">
-                    <p><span className="font-bold">62% NVDAc</span> <span className="text-[#77736c]">— 800k</span></p>
-                    <p><span className="font-bold">38% USDC</span> <span className="text-[#77736c]">— $12.50</span></p>
-                  </div>
-                </div>
-                <div className="rounded-xl bg-[#f5f3ee] p-3">
-                  <p className="text-[11px] font-bold text-[#101114]">Pool value</p>
-                  <p className="font-mono text-sm font-bold">$20.80</p>
-                  <p className="text-[11px] text-[#77736c]">scaledBalanceOf • Chainlink</p>
-                </div>
+              <div className="flex-1 space-y-2 text-xs">
+                <div className="flex items-center justify-between rounded-full bg-[#fff0eb] px-3 py-1.5"><span className="flex items-center gap-1.5 font-bold text-[#101114]"><span className="h-2 w-2 rounded-full bg-[#ff4f18]" />62% NVDAc</span><span className="font-mono text-[11px] text-[#77736c]">800k</span></div>
+                <div className="flex items-center justify-between rounded-full bg-[#f5f3ee] px-3 py-1.5"><span className="flex items-center gap-1.5 font-bold text-[#101114]"><span className="h-2 w-2 rounded-full bg-[#d6d3cd]" />38% USDC</span><span className="font-mono text-[11px] text-[#77736c]">$12.50</span></div>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-[#f5f3ee] p-3">
+                <p className="text-[10px] font-extrabold tracking-widest text-[#918d85]">POOL VALUE</p>
+                <p className="mt-1 font-mono text-sm font-bold text-[#101114]">$20.80</p>
+                <p className="text-[11px] text-[#77736c]">scaledBalanceOf · Chainlink</p>
+              </div>
+              <div className="rounded-xl border border-[#e3dfd7] bg-white p-3">
+                <p className="text-[10px] font-extrabold tracking-widest text-[#918d85]">YOUR CLAIM</p>
+                <p className="mt-1 font-mono text-sm font-bold text-[#101114]">$10.40</p>
+                <p className="text-[11px] text-[#77736c]">pro-rata units</p>
               </div>
             </div>
           </div>
         </div>
-        <div className="grid gap-4 p-4 md:grid-cols-[1fr_280px]">
+
+        <div className="grid gap-3 p-4 md:grid-cols-[1fr_280px] md:p-6 md:pt-4">
           <div>
-            <h3 className="font-[var(--font-newsreader)] text-[22px] font-medium leading-tight tracking-tight text-[#101114]">Chat and web, same vault.</h3>
-            <p className="mt-2 max-w-[520px] font-[var(--font-sora)] text-[14px] leading-relaxed text-[#77736c]">Start a proposal in Telegram, finish it on the web dashboard — or vice versa. One Next.js codebase powers both the desktop web and the Telegram Mini App slide-over via viem/wagmi and Coinbase Smart Wallet passkeys.</p>
+            <h3 className="font-[var(--font-newsreader)] text-[18px] font-medium leading-tight tracking-tight text-[#101114]">One vault, two surfaces. Full composability.</h3>
+            <p className="mt-2 max-w-[560px] font-[var(--font-sora)] text-[13px] leading-relaxed text-[#77736c]">The same <span className="font-semibold text-[#101114]">CirclaVault</span> powers both. Telegram proposes, web dispatches — both read <span className="font-mono text-[11px]">scaledBalanceOf</span> and Chainlink total-return feeds. No duplicated logic.</p>
           </div>
           <div className="space-y-3">
-            <div className="rounded-2xl border border-[#e3dfd7] bg-white p-4">
+            <div className="rounded-2xl border border-[#e3dfd7] bg-[#fcfaf8] p-4">
               <p className="text-xs font-bold text-[#101114]">B20-aware portfolio</p>
-              <p className="mt-1 text-[12px] leading-relaxed text-[#77736c]">Donut chart of NVDAc/AAPLc + idle USDC, with multiplier-adjusted claim.</p>
+              <p className="mt-1 text-[12px] leading-relaxed text-[#77736c]">Donut of NVDAc/AAPLc + idle USDC, multiplier-adjusted. Same component on TMA and desktop — <span className="font-mono text-[11px]">var(--tg-theme-bg-color)</span> aware.</p>
             </div>
-            <div className="rounded-2xl border border-[#e3dfd7] bg-white p-4">
+            <div className="rounded-2xl border border-[#e3dfd7] bg-[#fcfaf8] p-4">
               <p className="text-xs font-bold text-[#101114]">Syndicate feed</p>
-              <p className="mt-1 text-[12px] leading-relaxed text-[#77736c]">Live member deposits and Aerodrome batch swaps, BaseScan-linked.</p>
+              <p className="mt-1 text-[12px] leading-relaxed text-[#77736c]">Live member deposits and Aerodrome batch swaps — every entry links to Basescan, preserved in the same design tokens.</p>
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 px-4 pb-2">
-          <span className="rounded-full border border-[#e3dfd7] bg-[#f5f3ee] px-3.5 py-2 text-xs font-medium text-[#5e5b57]">B20 Multipliers</span>
-          <span className="rounded-full border border-[#e3dfd7] bg-[#f5f3ee] px-3.5 py-2 text-xs font-medium text-[#5e5b57]">Aerodrome Swaps</span>
-          <span className="rounded-full border border-[#e3dfd7] bg-[#f5f3ee] px-3.5 py-2 text-xs font-medium text-[#5e5b57]">Fractional Ledger</span>
+
+        <div className="flex flex-wrap gap-2 border-t border-[#f0ede8] bg-[#fcfaf8] px-4 py-3 md:px-6">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e3dfd7] bg-white px-3.5 py-2 text-xs font-medium text-[#5e5b57]"><span className="h-2 w-2 rounded-full bg-[#ff4f18]" />B20 Multipliers</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e3dfd7] bg-white px-3.5 py-2 text-xs font-medium text-[#5e5b57]"><span className="h-2 w-2 rounded-full bg-[#3b82f6]" />Aerodrome Swaps</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e3dfd7] bg-white px-3.5 py-2 text-xs font-medium text-[#5e5b57]"><span className="h-2 w-2 rounded-full bg-stone-400" />Fractional Ledger</span>
         </div>
       </section>
 
