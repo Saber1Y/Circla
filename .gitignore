@@ -2,6 +2,10 @@ out/
 cache/
 broadcast/
 web/dist/
+.next/
+web/.next/
+web/out/
+web/next-env.d.ts
 .env
 .env.*
 !.env.example
