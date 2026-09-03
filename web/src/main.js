@@ -7,6 +7,7 @@ const VAULT = import.meta.env.VITE_CIRCLA_VAULT_ADDRESS;
 const USDC = import.meta.env.VITE_CIRCLA_USDC_ADDRESS ?? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const STOCK = import.meta.env.VITE_CIRCLA_STOCK_ADDRESS ?? '0xb20000000000000000000078ee7ce2fE4908108C';
 const ROUTER = import.meta.env.VITE_CIRCLA_ROUTER_ADDRESS;
+const FACTORY = import.meta.env.VITE_CIRCLA_AERODROME_FACTORY_ADDRESS;
 
 const vaultAbi = [
   {type: 'function', name: 'join', stateMutability: 'nonpayable', inputs: [], outputs: []},
@@ -18,10 +19,12 @@ const vaultAbi = [
   {type: 'function', name: 'adjustedAssetBalance', stateMutability: 'view', inputs: [], outputs: [{type: 'uint256'}]},
   {type: 'function', name: 'createProposal', stateMutability: 'nonpayable', inputs: [{name: 'asset', type: 'address'}, {name: 'router', type: 'address'}, {name: 'amountIn', type: 'uint256'}, {name: 'minAmountOut', type: 'uint256'}], outputs: [{type: 'uint256'}]},
   {type: 'function', name: 'vote', stateMutability: 'nonpayable', inputs: [{name: 'proposalId', type: 'uint256'}, {name: 'support', type: 'bool'}], outputs: []},
+  {type: 'function', name: 'executeProposal', stateMutability: 'nonpayable', inputs: [{name: 'router', type: 'address'}, {name: 'proposalId', type: 'uint256'}, {name: 'routes', type: 'tuple[]', components: [{name: 'from', type: 'address'}, {name: 'to', type: 'address'}, {name: 'stable', type: 'bool'}, {name: 'factory', type: 'address'}]}], outputs: [{type: 'uint256'}]},
   {type: 'function', name: 'withdraw', stateMutability: 'nonpayable', inputs: [{name: 'units', type: 'uint256'}, {name: 'recipient', type: 'address'}], outputs: [{type: 'uint256'}, {type: 'uint256'}]},
 ];
 
 const erc20Abi = [{type: 'function', name: 'approve', stateMutability: 'nonpayable', inputs: [{name: 'spender', type: 'address'}, {name: 'amount', type: 'uint256'}], outputs: [{type: 'bool'}]}];
+const routerAbi = [{type: 'function', name: 'getAmountsOut', stateMutability: 'view', inputs: [{name: 'amountIn', type: 'uint256'}, {name: 'routes', type: 'tuple[]', components: [{name: 'from', type: 'address'}, {name: 'to', type: 'address'}, {name: 'stable', type: 'bool'}, {name: 'factory', type: 'address'}]}], outputs: [{name: 'amounts', type: 'uint256[]'}]}];
 
 const publicClient = createPublicClient({chain: base, transport: http(import.meta.env.VITE_BASE_RPC_URL ?? 'https://mainnet.base.org')});
 let walletClient;
@@ -50,6 +53,13 @@ document.querySelector('#app').innerHTML = `
         <div class="field"><label for="depositAmount">USDC amount</label><input id="depositAmount" value="50" inputmode="decimal" /></div>
         <button id="deposit" class="button primary full">Approve and deposit</button>
       </article>
+      <article class="panel wide">
+        <div class="panel-head"><div><p class="eyebrow">TOKENIZED STOCK ORDER</p><h2>Propose and execute a buy</h2></div><span class="tag">AERODROME ROUTE</span></div>
+        <p class="muted">The quote is read from the configured Aerodrome router. The proposal stores the router, asset, amount, and minimum output before anyone votes.</p>
+        <div class="order-grid"><div class="field"><label for="orderAmount">USDC amount</label><input id="orderAmount" value="100" inputmode="decimal" /></div><div class="field"><label for="slippage">Slippage (bps)</label><input id="slippage" value="100" inputmode="numeric" /></div><div class="field"><label for="orderId">Proposal ID</label><input id="orderId" placeholder="created after proposal" inputmode="numeric" /></div></div>
+        <div class="action-row"><button id="quoteOrder" class="button secondary">Quote and create proposal</button><button id="executeOrder" class="button primary">Execute approved proposal</button></div>
+        <p id="quoteResult" class="quote-result"></p>
+      </article>
       <article class="panel">
         <p class="eyebrow">GOVERNANCE</p><h2>Vote on a proposal</h2><p class="muted">Use the proposal ID posted by CIRCLA in Telegram.</p>
         <div class="field"><label for="proposalId">Proposal ID</label><input id="proposalId" value="1" inputmode="numeric" /></div>
@@ -74,6 +84,8 @@ $('deposit').addEventListener('click', deposit);
 $('voteYes').addEventListener('click', () => vote(true));
 $('voteNo').addEventListener('click', () => vote(false));
 $('withdraw').addEventListener('click', withdraw);
+$('quoteOrder').addEventListener('click', createProposal);
+$('executeOrder').addEventListener('click', executeProposal);
 
 async function connect() {
   if (!window.ethereum) return setActivity('Install a Base-compatible wallet to continue.', true);
@@ -124,18 +136,59 @@ async function withdraw() {
   await send('withdraw', [BigInt($('units').value), recipient]);
 }
 
+async function createProposal() {
+  requireWallet();
+  requireTradingConfig();
+  const amountIn = parseUnits($('orderAmount').value, 6);
+  const routes = [route(USDC, STOCK)];
+  try {
+    const amounts = await publicClient.readContract({address: ROUTER, abi: routerAbi, functionName: 'getAmountsOut', args: [amountIn, routes]});
+    const quotedOut = amounts[amounts.length - 1];
+    const slippageBps = BigInt($('slippage').value);
+    if (slippageBps < 0n || slippageBps >= 10_000n) throw new Error('slippage must be less than 10000 bps');
+    const minAmountOut = quotedOut * (10_000n - slippageBps) / 10_000n;
+    $('quoteResult').textContent = `Quote: ${formatUnits(quotedOut, 8)} NVDAc. Minimum output: ${formatUnits(minAmountOut, 8)} NVDAc. Creating proposal...`;
+    const receipt = await send('createProposal', [STOCK, ROUTER, amountIn, minAmountOut]);
+    const logs = receipt.logs ?? [];
+    const proposalLog = logs.find((log) => log.address?.toLowerCase() === VAULT.toLowerCase() && log.topics?.length > 1);
+    if (proposalLog) {
+      const proposalId = BigInt(proposalLog.topics[1]).toString();
+      $('proposalId').value = proposalId;
+      $('orderId').value = proposalId;
+      $('quoteResult').textContent = `Proposal #${proposalId} created. Ask the circle to vote in Telegram.`;
+    }
+  } catch (error) { setActivity(`Proposal creation failed: ${error.shortMessage ?? error.message}`, true); }
+}
+
+async function executeProposal() {
+  requireWallet();
+  requireTradingConfig();
+  const proposalId = $('orderId').value || $('proposalId').value;
+  if (!proposalId) throw new Error('Enter a proposal ID first.');
+  await send('executeProposal', [ROUTER, BigInt(proposalId), [route(USDC, STOCK)]]);
+}
+
 async function send(functionName, args, address = VAULT) {
   requireWallet();
   try {
     const hash = await walletClient.writeContract({address, abi: address === USDC ? erc20Abi : vaultAbi, functionName, args, account, chain: base});
     setActivity(`Submitted ${functionName}. Waiting for confirmation...`);
-    await publicClient.waitForTransactionReceipt({hash});
+    const receipt = await publicClient.waitForTransactionReceipt({hash});
     setActivity(`${functionName} confirmed: ${hash}`);
     await refresh();
+    return receipt;
   } catch (error) { setActivity(`${functionName} failed: ${error.shortMessage ?? error.message}`, true); throw error; }
 }
 
 function requireWallet() {
   if (!walletClient || !account) throw new Error('Connect a wallet first.');
   if (!VAULT || VAULT === ZERO) throw new Error('Configure the deployed CIRCLA vault first.');
+}
+
+function requireTradingConfig() {
+  if (!ROUTER || ROUTER === ZERO || !FACTORY || FACTORY === ZERO) throw new Error('Configure the Aerodrome router and factory first.');
+}
+
+function route(from, to) {
+  return {from, to, stable: false, factory: FACTORY};
 }
