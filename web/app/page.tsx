@@ -1,11 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
+import { motion, useReducedMotion } from "framer-motion";
 import { Users, LineChart, Smartphone, Play } from "lucide-react";
 import { useTMA } from "@/hooks/useTMA";
-import WorkflowDiagram from "@/components/WorkflowDiagram";
-import SecurityDiagram from "@/components/SecurityDiagram";
+
+const WorkflowDiagram = dynamic(() => import("@/components/WorkflowDiagram"), {
+  ssr: false,
+  loading: () => <div className="h-[360px] animate-pulse rounded-[24px] border border-[#e3dfd7] bg-white" aria-hidden />,
+});
+const SecurityDiagram = dynamic(() => import("@/components/SecurityDiagram"), {
+  ssr: false,
+  loading: () => <div className="h-[280px] animate-pulse rounded-[24px] border border-[#e3dfd7] bg-white" aria-hidden />,
+});
 
 const VAULT = process.env.NEXT_PUBLIC_CIRCLA_VAULT_ADDRESS || "";
 const TG_URL = process.env.NEXT_PUBLIC_TELEGRAM_URL || "https://t.me/CirclaBot";
@@ -15,14 +23,22 @@ const EXPLORER = "https://sepolia.basescan.org";
 const vaultLink = VAULT ? `${EXPLORER}/address/${VAULT}` : "#";
 const isLive = Boolean(VAULT && VAULT.startsWith("0x"));
 
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0 },
-  transition: { delay, duration: 0.6 },
-});
-
 export default function Landing() {
   const { isTMA } = useTMA();
+  const reduceMotion = useReducedMotion();
+  const anim = (delay = 0) =>
+    reduceMotion
+      ? {}
+      : { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 }, transition: { delay, duration: 0.6 } };
+  const inView = (delay = 0) =>
+    reduceMotion
+      ? {}
+      : {
+          initial: { opacity: 0, y: 16 },
+          whileInView: { opacity: 1, y: 0 },
+          viewport: { once: true },
+          transition: { delay },
+        };
 
   return (
     <main className="mx-auto max-w-[1240px] px-7 py-6 max-md:px-4">
@@ -74,7 +90,7 @@ export default function Landing() {
       {/* 1. Hero — single column, centered, 800px */}
       <section className="mx-auto max-w-[800px] py-12 text-center md:py-16">
         {isTMA ? (
-          <motion.div {...fadeUp(0.1)} className="rounded-2xl border border-blue-200 bg-blue-50 p-6">
+          <motion.div {...anim(0.1)} className="rounded-2xl border border-blue-200 bg-blue-50 p-6">
             <p className="font-[var(--font-sora)] text-sm font-semibold text-[#0052FF]">
               Opening in Telegram…
             </p>
@@ -91,36 +107,36 @@ export default function Landing() {
         ) : (
           <>
             <motion.div
-              {...fadeUp(0.1)}
+              {...anim(0.1)}
               className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-[#0052FF]"
             >
               Built on Base • Powered by B20 Stocks
             </motion.div>
             <motion.h1
-              {...fadeUp(0.2)}
+              {...anim(0.2)}
               className="mt-6 font-[var(--font-newsreader)] text-[56px] font-medium leading-[60px] tracking-tight text-[#101114] max-md:text-[36px] max-md:leading-[40px]"
             >
               Chat-Native Equity Syndicates.
             </motion.h1>
             <motion.p
-              {...fadeUp(0.3)}
+              {...anim(0.3)}
               className="mx-auto mt-4 max-w-lg font-[var(--font-sora)] text-[18px] leading-7 text-[#77736c]"
             >
               Pool USDC with friends, automate stock investments, and manage fractional portfolios of US
               equities—directly inside Telegram.
             </motion.p>
-            <motion.div {...fadeUp(0.4)} className="mt-8 flex flex-wrap justify-center gap-3">
+            <motion.div {...anim(0.4)} className="mt-8 flex flex-wrap justify-center gap-3">
               <a
                 href={TG_APP_URL}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-full bg-[#0052FF] px-7 py-3.5 text-sm font-bold text-white shadow-sm hover:opacity-90"
+                className="rounded-full bg-[#0052FF] px-7 py-3.5 text-sm font-bold text-white shadow-sm transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052FF] active:scale-[0.98]"
               >
                 Launch in Telegram
               </a>
               <Link
                 href="/app"
-                className="rounded-full border border-[#e3dfd7] bg-white px-7 py-3.5 text-sm font-semibold text-[#101114] hover:bg-[#f5f3ee]"
+                className="rounded-full border border-[#e3dfd7] bg-white px-7 py-3.5 text-sm font-semibold text-[#101114] transition hover:bg-[#f5f3ee] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052FF] active:scale-[0.98]"
               >
                 Open Web Dashboard
               </Link>
@@ -160,33 +176,31 @@ export default function Landing() {
               <iframe src={LOOM_URL} className="h-full w-full" allowFullScreen title="CIRCLA demo" />
             </div>
           ) : (
-            <a
-              href={TG_APP_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="flex aspect-video w-full flex-col items-center justify-center gap-3 bg-[#101114] text-white"
-            >
-              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#0052FF]">
+            <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 bg-[#101114] text-white">
+              <span
+                className="flex h-14 w-14 items-center justify-center rounded-full bg-[#0052FF]"
+                aria-hidden
+              >
                 <Play className="h-6 w-6 fill-white text-white" />
               </span>
               <span className="font-[var(--font-sora)] text-sm font-semibold">
                 Loom demo drops before Sep 9 — live vault linked below
               </span>
               <span className="font-mono text-[11px] text-white/60">
-                Set NEXT_PUBLIC_LOOM_URL to embed · {isLive ? "vault live" : "vault pending"}
+                {isLive ? "vault live" : "vault pending"} ·{" "}
+                <a href={vaultLink} target="_blank" rel="noreferrer" className="underline">
+                  Basescan ↗
+                </a>
               </span>
-            </a>
+            </div>
           )}
         </div>
       </section>
 
       {/* 2. Three-Card Grid */}
-      <section id="how" className="grid grid-cols-1 gap-5 pt-6 md:grid-cols-3">
+      <section id="how" aria-label="How it works" className="grid grid-cols-1 gap-5 pt-6 md:grid-cols-3">
         <motion.article
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0 }}
+          {...inView(0)}
           className="rounded-[24px] border border-[#e3dfd7] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
         >
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#0052FF]">
@@ -200,10 +214,7 @@ export default function Landing() {
           </p>
         </motion.article>
         <motion.article
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.15 }}
+          {...inView(0.15)}
           className="rounded-[24px] border border-[#e3dfd7] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
         >
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#0052FF]">
@@ -217,10 +228,7 @@ export default function Landing() {
           </p>
         </motion.article>
         <motion.article
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.3 }}
+          {...inView(0.3)}
           className="rounded-[24px] border border-[#e3dfd7] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
         >
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#0052FF]">
@@ -237,10 +245,8 @@ export default function Landing() {
 
       {/* 3. Product Showcase — Dual-Surface UI */}
       <motion.section
-        initial={{ opacity: 0, y: 16 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.6 }}
+        {...inView(0)}
+        aria-label="Product showcase"
         className="mt-6 overflow-hidden rounded-[24px] border border-[#e3dfd7] bg-white"
       >
         <div className="flex items-center justify-between border-b border-[#f0ede8] px-6 py-4">
@@ -389,17 +395,17 @@ export default function Landing() {
       </motion.section>
 
       {/* 4. Workflow Diagram */}
-      <section className="mt-6">
+      <section aria-label="Syndicate loop" className="mt-6">
         <WorkflowDiagram />
       </section>
 
       {/* 5. Security Diagram */}
-      <section className="mt-6">
+      <section aria-label="Security and guardrails" className="mt-6">
         <SecurityDiagram />
       </section>
 
       {/* 6. CTA */}
-      <section className="mx-auto max-w-[640px] py-12 text-center">
+      <section aria-label="Get started" className="mx-auto max-w-[640px] py-12 text-center">
         <h2 className="font-[var(--font-newsreader)] text-[44px] font-medium leading-[48px] tracking-tight text-[#101114]">
           Start your syndicate today.
         </h2>
@@ -412,13 +418,13 @@ export default function Landing() {
             href={TG_URL}
             target="_blank"
             rel="noreferrer"
-            className="rounded-full bg-[#101114] px-7 py-3.5 text-sm font-bold text-white hover:opacity-90"
+            className="rounded-full bg-[#101114] px-7 py-3.5 text-sm font-bold text-white transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052FF] active:scale-[0.98]"
           >
             Launch in Telegram
           </a>
           <Link
             href="/app"
-            className="rounded-full border border-[#e3dfd7] bg-white px-7 py-3.5 text-sm font-semibold text-[#101114] hover:bg-[#f5f3ee]"
+            className="rounded-full border border-[#e3dfd7] bg-white px-7 py-3.5 text-sm font-semibold text-[#101114] transition hover:bg-[#f5f3ee] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052FF] active:scale-[0.98]"
           >
             Open Web Dashboard
           </Link>
