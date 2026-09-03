@@ -63,6 +63,19 @@ forge script script/Deploy.s.sol:Deploy --rpc-url base --broadcast --verify
 
 The Aerodrome router address MUST be set from current official venue documentation before deployment.
 
+Deploy a test-only Sepolia stack with a clearly labeled B20-compatible mock asset:
+
+```bash
+forge script script/DeploySepoliaTestStack.s.sol:DeploySepoliaTestStack \
+  --rpc-url base_sepolia --broadcast
+```
+
+Set `DEPLOYER_PRIVATE_KEY` in the shell before running the command.
+
+This stack tests contract flow on Base Sepolia but does not represent a Coinbase Tokenized Stock.
+
+The final Quest demo MUST use the official Coinbase Tokenized Stock contracts on Base Mainnet.
+
 ## Architecture
 
 See:
