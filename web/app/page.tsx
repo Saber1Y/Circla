@@ -87,8 +87,8 @@ export default function Landing() {
         </a>
       </header>
 
-      {/* 1. Hero — single column, centered, 800px */}
-      <section className="mx-auto max-w-[800px] py-12 text-center md:py-16">
+      {/* 1. Hero — split screen: content left, live product visual right */}
+      <section className="grid items-center gap-10 py-12 md:grid-cols-[1.02fr_0.98fr] md:py-16">
         {isTMA ? (
           <motion.div {...anim(0.1)} className="rounded-2xl border border-blue-200 bg-blue-50 p-6">
             <p className="font-[var(--font-sora)] text-sm font-semibold text-[#0052FF]">
@@ -106,54 +106,150 @@ export default function Landing() {
           </motion.div>
         ) : (
           <>
-            <motion.div
-              {...anim(0.1)}
-              className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-[#0052FF]"
-            >
-              Built on Base • Powered by B20 Stocks
-            </motion.div>
-            <motion.h1
-              {...anim(0.2)}
-              className="mt-6 font-[var(--font-newsreader)] text-[56px] font-medium leading-[60px] tracking-tight text-[#101114] max-md:text-[36px] max-md:leading-[40px]"
-            >
-              Chat-Native Equity Syndicates.
-            </motion.h1>
-            <motion.p
-              {...anim(0.3)}
-              className="mx-auto mt-4 max-w-lg font-[var(--font-sora)] text-[18px] leading-7 text-[#77736c]"
-            >
-              Pool USDC with friends, automate stock investments, and manage fractional portfolios of US
-              equities—directly inside Telegram.
-            </motion.p>
-            <motion.div {...anim(0.4)} className="mt-8 flex flex-wrap justify-center gap-3">
-              <a
-                href={TG_APP_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-full bg-[#0052FF] px-7 py-3.5 text-sm font-bold text-white shadow-sm transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052FF] active:scale-[0.98]"
+            <div className="max-md:text-center">
+              <motion.div
+                {...anim(0.1)}
+                className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-[#0052FF]"
               >
-                Launch in Telegram
-              </a>
-              <Link
-                href="/app"
-                className="rounded-full border border-[#e3dfd7] bg-white px-7 py-3.5 text-sm font-semibold text-[#101114] transition hover:bg-[#f5f3ee] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052FF] active:scale-[0.98]"
+                <span className="h-1.5 w-1.5 rounded-full bg-[#0052FF]" />
+                Built on Base • Powered by B20 Stocks
+              </motion.div>
+              <motion.h1
+                {...anim(0.2)}
+                className="mt-6 font-[var(--font-newsreader)] text-[44px] font-medium leading-[46px] tracking-tight text-[#101114] md:text-[60px] md:leading-[62px]"
               >
-                Open Web Dashboard
-              </Link>
-            </motion.div>
-            {isLive && (
-              <p className="mt-4 text-xs text-[#918d85]">
-                Live Sepolia vault{" "}
-                <a href={vaultLink} target="_blank" className="font-mono text-[#0052FF] hover:underline">
-                  {VAULT.slice(0, 6)}…{VAULT.slice(-4)}
-                </a>{" "}
-                ·{" "}
-                <a href={vaultLink} target="_blank" className="underline">
-                  Basescan ↗
+                Chat-Native <span className="text-[#0052FF]">Equity</span> Syndicates.
+              </motion.h1>
+              <motion.p
+                {...anim(0.3)}
+                className="mt-4 max-w-md font-[var(--font-sora)] text-[18px] leading-7 text-[#77736c] max-md:mx-auto"
+              >
+                Pool USDC with friends, automate stock investments, and manage fractional portfolios—directly
+                inside Telegram.
+              </motion.p>
+              <motion.div {...anim(0.4)} className="mt-8 flex flex-wrap gap-3 max-md:justify-center">
+                <a
+                  href={TG_APP_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full bg-[#0052FF] px-7 py-3.5 text-sm font-bold text-white shadow-[0_8px_24px_rgba(0,82,255,0.28)] transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052FF] active:scale-[0.98]"
+                >
+                  Launch in Telegram
                 </a>
-              </p>
-            )}
+                <Link
+                  href="/app"
+                  className="rounded-full border border-[#e3dfd7] bg-white px-7 py-3.5 text-sm font-semibold text-[#101114] transition hover:bg-[#f5f3ee] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052FF] active:scale-[0.98]"
+                >
+                  Open Web Dashboard
+                </Link>
+              </motion.div>
+            </div>
+            <motion.div {...anim(0.3)} className="relative max-md:mt-4" aria-label="Live syndicate preview">
+              <div className="absolute -inset-8 rounded-full bg-[#0052FF]/10 blur-3xl" aria-hidden />
+              <div className="relative rounded-[24px] border border-[#e3dfd7] bg-white p-5 shadow-[0_24px_64px_rgba(16,17,20,0.10)]">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-extrabold tracking-widest text-[#101114]">
+                    TECH TITANS <span className="font-medium text-[#918d85]">· CIRCLA SYNDICATE</span>
+                  </p>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EFF6FF] px-2.5 py-1 text-[10px] font-bold text-[#0052FF]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#0052FF]" /> Live
+                  </span>
+                </div>
+                <div className="mt-4 flex items-center gap-4">
+                  <div className="relative h-[96px] w-[96px] shrink-0">
+                    <div className="absolute inset-0 rounded-full border-[11px] border-[#e3dfd7]" />
+                    <div
+                      className="absolute inset-0 rounded-full border-[11px] border-[#0052FF] border-b-transparent border-r-transparent"
+                      style={{ transform: "rotate(-45deg)" }}
+                    />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="font-mono text-sm font-bold text-[#101114]">$20.80</span>
+                      <span className="text-[9px] font-semibold text-[#918d85]">POOL</span>
+                    </div>
+                  </div>
+                  <div className="flex-1 space-y-2 text-xs">
+                    <div className="flex items-center justify-between rounded-full bg-[#EFF6FF] px-3 py-1.5">
+                      <span className="font-bold text-[#101114]">62% NVDAc</span>
+                      <span className="font-mono text-[11px] text-[#77736c]">800k</span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-full bg-[#f5f3ee] px-3 py-1.5">
+                      <span className="font-bold text-[#101114]">38% USDC</span>
+                      <span className="font-mono text-[11px] text-[#77736c]">$12.50</span>
+                    </div>
+                    <p className="font-mono text-[10px] text-[#918d85]">scaledBalanceOf · Chainlink</p>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <div className="flex items-center justify-between text-[11px] font-semibold">
+                    <span className="text-[#77736c]">$200 / $250 threshold</span>
+                    <span className="text-[#0052FF]">Quorum 2/2 ✓</span>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#f5f3ee]">
+                    <div className="h-2 w-[80%] rounded-full bg-[#0052FF]" />
+                  </div>
+                </div>
+              </div>
+              <div className="absolute -right-3 -top-5 max-w-[240px] rounded-2xl border border-[#e3dfd7] bg-white p-3 shadow-[0_16px_40px_rgba(16,17,20,0.12)] max-md:right-0">
+                <p className="font-[var(--font-sora)] text-[11px] font-bold leading-relaxed text-[#101114]">
+                  Swap executed! 1.14 NVDAc @ $250
+                </p>
+                <p className="mt-1 font-mono text-[10px] text-[#77736c]">
+                  sepolia proof ·{" "}
+                  <a href={vaultLink} target="_blank" rel="noreferrer" className="underline">
+                    Basescan
+                  </a>
+                </p>
+              </div>
+              <div className="absolute -bottom-4 -left-3 flex items-center gap-2 rounded-full border border-[#e3dfd7] bg-white py-2 pl-2 pr-4 shadow-[0_16px_40px_rgba(16,17,20,0.12)] max-md:left-0">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0052FF] text-[11px] font-bold text-white">
+                  ✓
+                </span>
+                <span className="font-mono text-[11px] font-semibold text-[#101114]">/contribute 50 USDC ✓</span>
+              </div>
+            </motion.div>
           </>
+        )}
+        {isTMA ? null : (
+          <div className="mt-10 border-t border-[#e3dfd7] pt-6 md:col-span-2">
+            <div className="grid grid-cols-3 gap-4 text-left max-md:grid-cols-1 max-md:text-center">
+              <div>
+                <p className="font-mono text-lg font-bold text-[#101114]">$20.80</p>
+                <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-[#918d85]">
+                  Pool value · Sepolia proof
+                </p>
+              </div>
+              <div>
+                <p className="font-mono text-lg font-bold text-[#101114]">800k tNVDAc</p>
+                <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-[#918d85]">
+                  Governed buy · Aerodrome
+                </p>
+              </div>
+              <div>
+                {isLive ? (
+                  <a href={vaultLink} target="_blank" rel="noreferrer" className="font-mono text-lg font-bold text-[#0052FF] hover:underline">
+                    {VAULT.slice(0, 6)}…{VAULT.slice(-4)} ↗
+                  </a>
+                ) : (
+                  <p className="font-mono text-lg font-bold text-[#101114]">Vault pending</p>
+                )}
+                <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-[#918d85]">
+                  Live contract · Basescan
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex flex-wrap items-center gap-2 max-md:justify-center">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-[#918d85]">Powered by</span>
+              {["Base", "Coinbase Stocks", "Aerodrome", "Chainlink", "Telegram"].map((name) => (
+                <span
+                  key={name}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#e3dfd7] bg-white px-3 py-1.5 text-xs font-semibold text-[#101114]"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#0052FF]" />
+                  {name}
+                </span>
+              ))}
+            </div>
+          </div>
         )}
       </section>
 
