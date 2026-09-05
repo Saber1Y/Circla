@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {IAerodromeRouterLike} from "../interfaces/CirclaInterfaces.sol";
+import {ISlipstreamRouterLike} from "../interfaces/CirclaInterfaces.sol";
 
 contract CirclaTestUSDC is ERC20 {
     constructor() ERC20("CIRCLA Test USDC", "tUSDC") {}
@@ -85,34 +85,29 @@ contract CirclaTestRouter {
         usdc = usdc_;
         stock = stock_;
     }
+    uint256 public output;
 
-    function getAmountsOut(uint256 amountIn, IAerodromeRouterLike.Route[] calldata routes)
-        external
-        view
-        returns (uint256[] memory amounts)
-    {
-        amounts = new uint256[](routes.length + 1);
-        amounts[0] = amountIn;
-        for (uint256 i; i < routes.length; ++i) {
-            amounts[i + 1] = routes[i].from == address(usdc) ? amounts[i] * 1e6 / 100e6 : amounts[i] * 100e6 / 1e6;
-        }
+    function setOutput(uint256 value) external {
+        output = value;
     }
 
-    function swapExactTokensForTokens(
-        uint256 amountIn,
-        uint256 amountOutMin,
-        IAerodromeRouterLike.Route[] calldata routes,
-        address to,
-        uint256
-    ) external returns (uint256[] memory amounts) {
-        amounts = this.getAmountsOut(amountIn, routes);
-        require(amounts[amounts.length - 1] >= amountOutMin, "minimum output");
-        if (routes[0].from == address(usdc)) {
-            require(usdc.transferFrom(msg.sender, address(this), amountIn), "USDC transfer failed");
-            require(stock.transfer(to, amounts[amounts.length - 1]), "stock transfer failed");
+    function quote(uint256 amountIn, address tokenIn) external view returns (uint256) {
+        if (output > 0) return output;
+        return tokenIn == address(usdc) ? amountIn * 1e6 / 100e6 : amountIn * 100e6 / 1e6;
+    }
+
+    function exactInputSingle(ISlipstreamRouterLike.ExactInputSingleParams calldata params)
+        external
+        returns (uint256 amountOut)
+    {
+        amountOut = this.quote(params.amountIn, params.tokenIn);
+        require(amountOut >= params.amountOutMinimum, "minimum output");
+        if (params.tokenIn == address(usdc)) {
+            require(usdc.transferFrom(msg.sender, address(this), params.amountIn), "USDC transfer failed");
+            require(stock.transfer(params.recipient, amountOut), "stock transfer failed");
         } else {
-            require(stock.transferFrom(msg.sender, address(this), amountIn), "stock transfer failed");
-            require(usdc.transfer(to, amounts[amounts.length - 1]), "USDC transfer failed");
+            require(stock.transferFrom(msg.sender, address(this), params.amountIn), "stock transfer failed");
+            require(usdc.transfer(params.recipient, amountOut), "USDC transfer failed");
         }
     }
 }
