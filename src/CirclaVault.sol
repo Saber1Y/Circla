@@ -17,6 +17,9 @@ contract CirclaVault is Ownable, ReentrancyGuard {
     bytes32 public constant TRANSFER_RECEIVER_POLICY = keccak256("TRANSFER_RECEIVER_POLICY");
     uint256 public constant UNIT_SCALE = 1e18;
     uint256 public constant MAX_PRICE_AGE = 26 hours;
+    // Chainlink 24/5 equity feeds hold Friday's close over the weekend.
+    // A price frozen at a Friday update is market data, not a broken feed.
+    uint256 public constant WEEKEND_PRICE_AGE = 72 hours;
 
     IERC20 public immutable usdc;
     CirclaAssetRegistry public immutable registry;
@@ -322,9 +325,20 @@ contract CirclaVault is Ownable, ReentrancyGuard {
         return _members;
     }
 
+    /// @notice True when a feed timestamp must not be trusted for valuation.
+    /// @dev Weekday rule is unchanged (26h). A feed frozen at a Friday update
+    /// gets a 72h weekend grace; anything else stale fails closed.
+    function _priceIsStale(uint256 updatedAt) internal view returns (bool) {
+        uint256 age = block.timestamp - updatedAt;
+        if (age <= MAX_PRICE_AGE) return false;
+        if (age > WEEKEND_PRICE_AGE) return true;
+        // 1970-01-01 was a Thursday: (days + 4) % 7 gives 0=Sunday..5=Friday.
+        return (updatedAt / 1 days + 4) % 7 != 5;
+    }
+
     function _assetValue(address token, address feed, uint256 rawBalance) internal view returns (uint256) {
         (, int256 answer,, uint256 updatedAt,) = IPriceFeedLike(feed).latestRoundData();
-        if (answer <= 0 || updatedAt == 0 || block.timestamp - updatedAt > MAX_PRICE_AGE) revert UnsafePrice();
+        if (answer <= 0 || updatedAt == 0 || _priceIsStale(updatedAt)) revert UnsafePrice();
         uint8 feedDecimals = IPriceFeedLike(feed).decimals();
         uint8 tokenDecimals = registry.getAsset(token).tokenDecimals;
         // The answer is positive by the check above, so this conversion cannot truncate a negative value.
