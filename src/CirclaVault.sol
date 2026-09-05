@@ -6,7 +6,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {CirclaAssetRegistry} from "./CirclaAssetRegistry.sol";
-import {IB20Like, IPolicyRegistryLike, IPriceFeedLike, IAerodromeRouterLike} from "./interfaces/CirclaInterfaces.sol";
+import {IB20Like, IPolicyRegistryLike, IPriceFeedLike, ISlipstreamRouterLike} from "./interfaces/CirclaInterfaces.sol";
 
 /// @title CirclaVault
 /// @notice A one-circle MVP vault for governed USDC contributions and B20 stock purchases.
@@ -96,7 +96,7 @@ contract CirclaVault is Ownable, ReentrancyGuard {
     error UnauthorizedRecipient();
     error InsufficientClaim();
     error UnsafePrice();
-    error InvalidRoute();
+    error InvalidTickSpacing();
     error InvalidRecipient();
     error RecipientIsAuthorized();
 
@@ -200,7 +200,7 @@ contract CirclaVault is Ownable, ReentrancyGuard {
         emit VoteCast(proposalId, msg.sender, support);
     }
 
-    function executeProposal(address router, uint256 proposalId, IAerodromeRouterLike.Route[] calldata routes)
+    function executeProposal(address router, uint256 proposalId, int24 tickSpacing)
         external
         onlyMember
         nonReentrant
@@ -211,20 +211,22 @@ contract CirclaVault is Ownable, ReentrancyGuard {
         if (proposal.proposer == address(0) || proposal.executed || proposal.cancelled) revert InvalidProposal();
         if (block.timestamp > proposal.deadline) revert ProposalExpired();
         if (proposal.yesVotes < quorum || proposal.yesVotes <= proposal.noVotes) revert QuorumNotReached();
-        if (routes.length == 0 || routes[0].from != address(usdc) || routes[routes.length - 1].to != proposal.asset) {
-            revert InvalidRoute();
-        }
-        for (uint256 i; i < routes.length; ++i) {
-            if (i > 0 && routes[i - 1].to != routes[i].from) revert InvalidRoute();
-        }
         if (router != proposal.router || !registry.approvedRouters(router)) revert InvalidProposal();
+        if (tickSpacing != registry.getAsset(proposal.asset).tickSpacing) revert InvalidTickSpacing();
         proposal.executed = true;
         usdc.forceApprove(router, proposal.amountIn);
-        uint256[] memory amounts = IAerodromeRouterLike(router)
-            .swapExactTokensForTokens(
-                proposal.amountIn, proposal.minAmountOut, routes, address(this), proposal.deadline
-            );
-        amountOut = amounts[amounts.length - 1];
+        amountOut = ISlipstreamRouterLike(router).exactInputSingle(
+            ISlipstreamRouterLike.ExactInputSingleParams({
+                tokenIn: address(usdc),
+                tokenOut: proposal.asset,
+                tickSpacing: tickSpacing,
+                recipient: address(this),
+                deadline: proposal.deadline,
+                amountIn: proposal.amountIn,
+                amountOutMinimum: proposal.minAmountOut,
+                sqrtPriceLimitX96: 0
+            })
+        );
         usdc.forceApprove(router, 0);
         if (portfolioAsset == address(0)) {
             portfolioAsset = proposal.asset;
@@ -279,25 +281,18 @@ contract CirclaVault is Ownable, ReentrancyGuard {
         emit Withdrawal(msg.sender, recipient, units, usdcAmount, assetAmount);
     }
 
-    function withdrawAsUSDC(
-        uint256 units,
-        address recipient,
-        address router,
-        IAerodromeRouterLike.Route[] calldata routes,
-        uint256 minAmountOut
-    ) external onlyMember nonReentrant returns (uint256 totalUsdc) {
+    function withdrawAsUSDC(uint256 units, address recipient, address router, uint256 minAmountOut)
+        external
+        onlyMember
+        nonReentrant
+        returns (uint256 totalUsdc)
+    {
         if (recipient == address(0)) revert InvalidRecipient();
         if (units == 0 || units > memberUnits[msg.sender]) revert InsufficientClaim();
         if (portfolioAsset == address(0)) revert InvalidProposal();
         uint64 policy = IB20Like(portfolioAsset).policyId(TRANSFER_RECEIVER_POLICY);
         if (policyRegistry.isAuthorized(policy, recipient)) revert RecipientIsAuthorized();
         if (!registry.approvedRouters(router)) revert InvalidProposal();
-        if (routes.length == 0 || routes[0].from != portfolioAsset || routes[routes.length - 1].to != address(usdc)) {
-            revert InvalidRoute();
-        }
-        for (uint256 i; i < routes.length; ++i) {
-            if (i > 0 && routes[i - 1].to != routes[i].from) revert InvalidRoute();
-        }
 
         uint256 assetAmount = IB20Like(portfolioAsset).balanceOf(address(this)) * units / totalUnits;
         uint256 reservedUsdc = usdc.balanceOf(address(this)) * units / totalUnits;
@@ -305,12 +300,19 @@ contract CirclaVault is Ownable, ReentrancyGuard {
         totalUnits -= units;
 
         IERC20(portfolioAsset).forceApprove(router, assetAmount);
-        uint256 balanceBefore = usdc.balanceOf(address(this));
-        uint256[] memory amounts = IAerodromeRouterLike(router)
-            .swapExactTokensForTokens(assetAmount, minAmountOut, routes, address(this), block.timestamp);
+        uint256 liquidatedUsdc = ISlipstreamRouterLike(router).exactInputSingle(
+            ISlipstreamRouterLike.ExactInputSingleParams({
+                tokenIn: portfolioAsset,
+                tokenOut: address(usdc),
+                tickSpacing: registry.getAsset(portfolioAsset).tickSpacing,
+                recipient: address(this),
+                deadline: block.timestamp,
+                amountIn: assetAmount,
+                amountOutMinimum: minAmountOut,
+                sqrtPriceLimitX96: 0
+            })
+        );
         IERC20(portfolioAsset).forceApprove(router, 0);
-        uint256 liquidatedUsdc = usdc.balanceOf(address(this)) - balanceBefore;
-        if (amounts[amounts.length - 1] != liquidatedUsdc) revert InvalidProposal();
         totalUsdc = reservedUsdc + liquidatedUsdc;
         usdc.safeTransfer(recipient, totalUsdc);
         emit LiquidationWithdrawal(msg.sender, recipient, units, reservedUsdc, liquidatedUsdc, assetAmount, router);
