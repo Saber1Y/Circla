@@ -3,8 +3,7 @@ pragma solidity 0.8.28;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {CirclaVault} from "../src/CirclaVault.sol";
-import {CirclaTestB20, CirclaTestUSDC} from "../src/mocks/CirclaTestAssets.sol";
-import {IAerodromeRouterLike} from "../src/interfaces/CirclaInterfaces.sol";
+import {CirclaTestB20, CirclaTestUSDC, CirclaTestRouter} from "../src/mocks/CirclaTestAssets.sol";
 
 contract RunSepoliaWithdraw is Script {
     function run() external {
@@ -58,17 +57,15 @@ contract RunSepoliaWithdraw is Script {
 
             uint256 remainingUnits = vault.memberUnits(alice);
             uint256 liqUnits = remainingUnits / 2;
-            IAerodromeRouterLike.Route[] memory routes = new IAerodromeRouterLike.Route[](1);
-            routes[0] = IAerodromeRouterLike.Route({from: stockAddr, to: usdcAddr, stable: false, factory: address(0)});
 
             // Get quote for liquidation
-            uint256[] memory amounts = IAerodromeRouterLike(routerAddr)
-                .getAmountsOut(stock.balanceOf(vaultAddr) * liqUnits / vault.totalUnits(), routes);
-            uint256 minOut = amounts[amounts.length - 1] * 9900 / 10000;
+            uint256 liqQuote =
+                CirclaTestRouter(routerAddr).quote(stock.balanceOf(vaultAddr) * liqUnits / vault.totalUnits(), stockAddr);
+            uint256 minOut = liqQuote * 9900 / 10000;
             console2.log("Liquidation quote minOut:", minOut);
 
             vm.startBroadcast(aliceKey);
-            uint256 totalUsdc = vault.withdrawAsUSDC(liqUnits, blockedRecipient, routerAddr, routes, minOut);
+            uint256 totalUsdc = vault.withdrawAsUSDC(liqUnits, blockedRecipient, routerAddr, minOut);
             vm.stopBroadcast();
             console2.log("Liquidation withdraw total USDC:", totalUsdc);
             console2.log("Blocked recipient USDC:", usdc.balanceOf(blockedRecipient));
