@@ -6,7 +6,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {CirclaAssetRegistry} from "../src/CirclaAssetRegistry.sol";
 import {CirclaVault} from "../src/CirclaVault.sol";
-import {IAerodromeRouterLike} from "../src/interfaces/CirclaInterfaces.sol";
+import {ISlipstreamRouterLike} from "../src/interfaces/CirclaInterfaces.sol";
 
 contract MockUSDC is ERC20 {
     constructor() ERC20("Mock USDC", "USDC") {}
@@ -80,7 +80,7 @@ contract MockPolicyRegistry {
     }
 }
 
-contract MockAerodromeRouter {
+contract MockSlipstreamRouter {
     MockUSDC public immutable usdc;
     MockB20 public immutable stock;
     uint256 public output;
@@ -94,24 +94,22 @@ contract MockAerodromeRouter {
         output = value;
     }
 
-    function swapExactTokensForTokens(
-        uint256 amountIn,
-        uint256 amountOutMin,
-        IAerodromeRouterLike.Route[] calldata routes,
-        address to,
-        uint256
-    ) external returns (uint256[] memory amounts) {
-        require(output >= amountOutMin, "minimum output");
-        if (routes[0].from == address(usdc)) {
-            require(IERC20(address(usdc)).transferFrom(msg.sender, address(this), amountIn), "transferFrom failed");
-            require(IERC20(address(stock)).transfer(to, output), "transfer failed");
+    function exactInputSingle(ISlipstreamRouterLike.ExactInputSingleParams calldata params)
+        external
+        returns (uint256 amountOut)
+    {
+        amountOut = output;
+        require(amountOut >= params.amountOutMinimum, "minimum output");
+        if (params.tokenIn == address(usdc)) {
+            require(params.tokenOut == address(stock), "unexpected pair");
+            require(IERC20(address(usdc)).transferFrom(msg.sender, address(this), params.amountIn), "transferFrom failed");
+            require(IERC20(address(stock)).transfer(params.recipient, amountOut), "transfer failed");
         } else {
-            require(IERC20(address(stock)).transferFrom(msg.sender, address(this), amountIn), "transferFrom failed");
-            require(IERC20(address(usdc)).transfer(to, output), "transfer failed");
+            require(params.tokenIn == address(stock), "unexpected pair");
+            require(params.tokenOut == address(usdc), "unexpected pair");
+            require(IERC20(address(stock)).transferFrom(msg.sender, address(this), params.amountIn), "transferFrom failed");
+            require(IERC20(address(usdc)).transfer(params.recipient, amountOut), "transfer failed");
         }
-        amounts = new uint256[](2);
-        amounts[0] = amountIn;
-        amounts[1] = output;
     }
 }
 
@@ -120,7 +118,7 @@ contract CirclaVaultTest is Test {
     MockB20 stock;
     MockFeed feed;
     MockPolicyRegistry policies;
-    MockAerodromeRouter router;
+    MockSlipstreamRouter router;
     CirclaAssetRegistry registry;
     CirclaVault vault;
     address alice = address(0xA11CE);
@@ -132,9 +130,9 @@ contract CirclaVaultTest is Test {
         stock = new MockB20();
         feed = new MockFeed();
         policies = new MockPolicyRegistry();
-        router = new MockAerodromeRouter(usdc, stock);
+        router = new MockSlipstreamRouter(usdc, stock);
         registry = new CirclaAssetRegistry(address(this));
-        registry.configureAsset(address(stock), address(feed), 6, 1_000e6, true);
+        registry.configureAsset(address(stock), address(feed), 6, 10, 1_000e6, true);
         registry.setRouter(address(router), true);
         vault = new CirclaVault(
             address(this),
@@ -184,10 +182,8 @@ contract CirclaVaultTest is Test {
         vault.vote(proposalId, true);
 
         router.setOutput(1e6);
-        IAerodromeRouterLike.Route[] memory routes = new IAerodromeRouterLike.Route[](1);
-        routes[0] = IAerodromeRouterLike.Route(address(usdc), address(stock), false, address(0));
         vm.prank(alice);
-        vault.executeProposal(address(router), proposalId, routes);
+        vault.executeProposal(address(router), proposalId, 10);
 
         assertEq(stock.balanceOf(address(vault)), 1e6);
         assertEq(vault.poolValue(), 100e6);
@@ -221,12 +217,10 @@ contract CirclaVaultTest is Test {
         _buyStock();
         stock.setPolicy(7);
         router.setOutput(50e6);
-        IAerodromeRouterLike.Route[] memory routes = new IAerodromeRouterLike.Route[](1);
-        routes[0] = IAerodromeRouterLike.Route(address(stock), address(usdc), false, address(0));
         uint256 units = vault.memberUnits(alice);
 
         vm.prank(alice);
-        vault.withdrawAsUSDC(units, recipient, address(router), routes, 50e6);
+        vault.withdrawAsUSDC(units, recipient, address(router), 50e6);
 
         assertEq(usdc.balanceOf(recipient), 50e6);
         assertEq(stock.balanceOf(address(vault)), 500_000);
@@ -239,11 +233,40 @@ contract CirclaVaultTest is Test {
         vm.prank(alice);
         vault.vote(proposalId, true);
 
-        IAerodromeRouterLike.Route[] memory routes = new IAerodromeRouterLike.Route[](1);
-        routes[0] = IAerodromeRouterLike.Route(address(usdc), address(stock), false, address(0));
         vm.prank(alice);
         vm.expectRevert(CirclaVault.QuorumNotReached.selector);
-        vault.executeProposal(address(router), proposalId, routes);
+        vault.executeProposal(address(router), proposalId, 10);
+    }
+
+    function testCannotExecuteWithWrongTickSpacing() public {
+        _deposit(alice, 50e6);
+        _deposit(bob, 50e6);
+        vm.prank(alice);
+        uint256 proposalId = vault.createProposal(address(stock), address(router), 50e6, 1e6);
+        vm.prank(alice);
+        vault.vote(proposalId, true);
+        vm.prank(bob);
+        vault.vote(proposalId, true);
+
+        vm.prank(alice);
+        vm.expectRevert(CirclaVault.InvalidTickSpacing.selector);
+        vault.executeProposal(address(router), proposalId, 50);
+    }
+
+    function testCannotExecuteWithUnapprovedRouter() public {
+        _deposit(alice, 50e6);
+        _deposit(bob, 50e6);
+        vm.prank(alice);
+        uint256 proposalId = vault.createProposal(address(stock), address(router), 50e6, 1e6);
+        vm.prank(alice);
+        vault.vote(proposalId, true);
+        vm.prank(bob);
+        vault.vote(proposalId, true);
+
+        address rogue = address(0xBEEF);
+        vm.prank(alice);
+        vm.expectRevert(CirclaVault.InvalidProposal.selector);
+        vault.executeProposal(rogue, proposalId, 10);
     }
 
     function _deposit(address member, uint256 amount) internal {
@@ -263,9 +286,7 @@ contract CirclaVaultTest is Test {
         vm.prank(bob);
         vault.vote(proposalId, true);
         router.setOutput(1e6);
-        IAerodromeRouterLike.Route[] memory routes = new IAerodromeRouterLike.Route[](1);
-        routes[0] = IAerodromeRouterLike.Route(address(usdc), address(stock), false, address(0));
         vm.prank(alice);
-        vault.executeProposal(address(router), proposalId, routes);
+        vault.executeProposal(address(router), proposalId, 10);
     }
 }
