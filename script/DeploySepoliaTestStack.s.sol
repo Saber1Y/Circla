@@ -34,7 +34,7 @@ contract DeploySepoliaTestStack is Script {
         policies = new CirclaTestPolicyRegistry();
         router = new CirclaTestRouter(usdc, stock);
         registry = new CirclaAssetRegistry(deployer);
-        registry.configureAsset(address(stock), address(feed), 8, 1_000e6, true);
+        registry.configureAsset(address(stock), address(feed), 8, 10, 1_000e6, true);
         registry.setRouter(address(router), true);
         vault = new CirclaVault(
             deployer,
