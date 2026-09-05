@@ -1,6 +1,6 @@
 import { Telegraf } from 'telegraf';
 import { getAddress, formatUnits } from 'viem';
-import { createBaseClient, readVaultSnapshot } from './base-client.mjs';
+import { createBaseClient, readVaultSnapshot, readProposal } from './base-client.mjs';
 import { buildProposalPreview } from './proposal-service.mjs';
 import { parseIntent } from './intent-parser.mjs';
 import { formatSwapReceipt } from './receipts.mjs';
@@ -28,7 +28,7 @@ export function createCirclaBot({ token, vaultAddress } = {}) {
 
   bot.help(async (ctx) => {
     await ctx.reply(
-      '/start_syndicate — syndicate info + vault address\n/status — live vault snapshot\n/portfolio — holdings + adjusted balance\n/propose buy <USDC> <NVDAc|AAPLc> — proposal preview\n/vote <yes|no> — record your vote in chat\n/deposit <USDC> — how to contribute',
+      '/start_syndicate — syndicate info + vault address\n/status — live vault snapshot\n/portfolio — holdings + adjusted balance\n/votes [id] — vote count for a proposal (default: latest)\n/propose buy <USDC> <NVDAc|AAPLc> — proposal preview\n/vote <yes|no> — record your vote in chat\n/deposit <USDC> — how to contribute',
     );
   });
 
@@ -48,6 +48,29 @@ export function createCirclaBot({ token, vaultAddress } = {}) {
 
   bot.command('portfolio', async (ctx) => {
     await replySnapshot(ctx, client, vaultAddress, true);
+  });
+
+  bot.command('votes', async (ctx) => {
+    const arg = ctx.message.text.split(/\s+/)[1];
+    try {
+      const id = arg ? BigInt(arg) : undefined;
+      const p = await readProposal(client, vaultAddress, id);
+      const now = Math.floor(Date.now() / 1000);
+      const secsLeft = Number(p.deadline) - now;
+      const status = p.executed ? 'executed' : p.cancelled ? 'cancelled' : secsLeft <= 0 ? 'expired' : 'awaiting votes';
+      const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+      const lines = [
+        `Proposal #${p.id}`,
+        `Buy ${formatUnits(p.amountIn, 6)} USDC → ${short(p.asset)}`,
+        `Votes: ${p.yesVotes}/${p.quorum} yes · ${p.noVotes} no`,
+        `Status: ${status}${status === 'awaiting votes' ? ` · expires in ${Math.max(0, Math.floor(secsLeft / 60))}m` : ''}`,
+      ];
+      if (p.voted.length > 0) lines.push(`Voted: ${p.voted.map(short).join(', ')}`);
+      else lines.push('Voted: no one yet');
+      await ctx.reply(lines.join('\n'));
+    } catch (error) {
+      await ctx.reply(`Votes unavailable: ${error.shortMessage ?? error.message}`);
+    }
   });
 
   bot.command('deposit', async (ctx) => {
