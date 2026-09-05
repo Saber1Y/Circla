@@ -269,6 +269,37 @@ contract CirclaVaultTest is Test {
         vault.executeProposal(rogue, proposalId, 10);
     }
 
+    function testFridayClosePriceSurvivesWeekend() public {
+        _buyStock();
+        // Friday 2026-09-04 20:00 UTC: last print before the weekend freeze.
+        vm.warp(1788552000);
+        feed.setAnswer(100e8);
+        // Sunday, 48h stale: valuation and deposits must keep working.
+        vm.warp(1788552000 + 48 hours);
+        assertEq(vault.poolValue(), 100e6);
+        _deposit(alice, 10e6);
+        assertEq(vault.poolValue(), 110e6);
+    }
+
+    function testNonFridayStalePriceStillReverts() public {
+        _buyStock();
+        // Wednesday print, 30h stale: not a weekend freeze, must fail closed.
+        vm.warp(1788379200);
+        feed.setAnswer(100e8);
+        vm.warp(1788379200 + 30 hours);
+        vm.expectRevert(CirclaVault.UnsafePrice.selector);
+        vault.poolValue();
+    }
+
+    function testFridayPriceExpiresAfter72Hours() public {
+        _buyStock();
+        vm.warp(1788552000);
+        feed.setAnswer(100e8);
+        vm.warp(1788552000 + 73 hours);
+        vm.expectRevert(CirclaVault.UnsafePrice.selector);
+        vault.poolValue();
+    }
+
     function _deposit(address member, uint256 amount) internal {
         vm.startPrank(member);
         usdc.approve(address(vault), amount);
