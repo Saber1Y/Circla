@@ -3,8 +3,7 @@ pragma solidity 0.8.28;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {CirclaVault} from "../src/CirclaVault.sol";
-import {CirclaTestUSDC, CirclaTestB20} from "../src/mocks/CirclaTestAssets.sol";
-import {IAerodromeRouterLike} from "../src/interfaces/CirclaInterfaces.sol";
+import {CirclaTestUSDC, CirclaTestB20, CirclaTestRouter} from "../src/mocks/CirclaTestAssets.sol";
 
 contract RunSepoliaFlow is Script {
     function run() external {
@@ -76,13 +75,10 @@ contract RunSepoliaFlow is Script {
 
         // Create proposal: buy 80 tUSDC of stock with 1% slippage
         uint256 amountIn = 80e6;
-        IAerodromeRouterLike.Route[] memory routes = new IAerodromeRouterLike.Route[](1);
-        routes[0] = IAerodromeRouterLike.Route({from: usdcAddr, to: stockAddr, stable: false, factory: address(0)});
-        // Use router getAmountsOut via static call
-        uint256 quoted = 800000; // 80e6 * 1e6 / 100e6 = 800k (8 decimals? stock is 8 decimals, usdc 6 => 80e6 USDC -> 0.8e6 stock? Actually router does amount *1e6/100e6)
-        // Query live quote if router supports it
-        try IAerodromeRouterLike(routerAddr).getAmountsOut(amountIn, routes) returns (uint256[] memory amounts) {
-            quoted = amounts[amounts.length - 1];
+        // Quote via the Slipstream-style mock router (mirrors QuoterV2 offchain on mainnet)
+        uint256 quoted = 800000;
+        try CirclaTestRouter(routerAddr).quote(amountIn, usdcAddr) returns (uint256 q) {
+            quoted = q;
             console2.log("Live quote:", quoted);
         } catch {
             console2.log("Using fallback quote:", quoted);
@@ -109,7 +105,7 @@ contract RunSepoliaFlow is Script {
         }
 
         vm.startBroadcast(deployerKey);
-        uint256 amountOut = vault.executeProposal(routerAddr, proposalId, routes);
+        uint256 amountOut = vault.executeProposal(routerAddr, proposalId, 10);
         vm.stopBroadcast();
         console2.log("Executed proposal, amountOut:", amountOut);
         console2.log("Final poolValue:", vault.poolValue());
