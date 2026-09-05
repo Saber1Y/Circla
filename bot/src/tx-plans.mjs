@@ -29,16 +29,7 @@ const vaultAbi = [
     inputs: [
       {name: 'router', type: 'address'},
       {name: 'proposalId', type: 'uint256'},
-      {
-        name: 'routes',
-        type: 'tuple[]',
-        components: [
-          {name: 'from', type: 'address'},
-          {name: 'to', type: 'address'},
-          {name: 'stable', type: 'bool'},
-          {name: 'factory', type: 'address'},
-        ],
-      },
+      {name: 'tickSpacing', type: 'int24'},
     ],
     outputs: [{name: 'amountOut', type: 'uint256'}],
   },
@@ -83,8 +74,8 @@ export function votePlan({vault, proposalId, support}) {
   return call(vault, encodeFunctionData({abi: vaultAbi, functionName: 'vote', args: [BigInt(proposalId), support]}));
 }
 
-export function executePlan({vault, router, proposalId, routes}) {
-  return call(vault, encodeFunctionData({abi: vaultAbi, functionName: 'executeProposal', args: [router, BigInt(proposalId), routes]}));
+export function executePlan({vault, router, proposalId, tickSpacing}) {
+  return call(vault, encodeFunctionData({abi: vaultAbi, functionName: 'executeProposal', args: [router, BigInt(proposalId), tickSpacing]}));
 }
 
 export function withdrawPlan({vault, units, recipient}) {
