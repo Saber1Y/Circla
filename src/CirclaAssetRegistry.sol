@@ -11,6 +11,7 @@ contract CirclaAssetRegistry is Ownable {
         address token;
         address priceFeed;
         uint8 tokenDecimals;
+        int24 tickSpacing;
         uint256 maxTradeAmount;
         bool enabled;
     }
@@ -19,7 +20,12 @@ contract CirclaAssetRegistry is Ownable {
     mapping(address router => bool) public approvedRouters;
 
     event AssetConfigured(
-        address indexed token, address indexed priceFeed, uint8 tokenDecimals, uint256 maxTradeAmount, bool enabled
+        address indexed token,
+        address indexed priceFeed,
+        uint8 tokenDecimals,
+        int24 tickSpacing,
+        uint256 maxTradeAmount,
+        bool enabled
     );
     event RouterConfigured(address indexed router, bool approved);
 
@@ -27,15 +33,21 @@ contract CirclaAssetRegistry is Ownable {
     error InvalidDecimals();
     error DecimalsMismatch();
     error InvalidPriceFeed();
+    error InvalidTickSpacing();
 
     constructor(address owner_) Ownable(owner_) {}
 
-    function configureAsset(address token, address priceFeed, uint8 tokenDecimals, uint256 maxTradeAmount, bool enabled)
-        external
-        onlyOwner
-    {
+    function configureAsset(
+        address token,
+        address priceFeed,
+        uint8 tokenDecimals,
+        int24 tickSpacing,
+        uint256 maxTradeAmount,
+        bool enabled
+    ) external onlyOwner {
         if (token == address(0) || priceFeed == address(0)) revert InvalidAddress();
         if (tokenDecimals < 6 || tokenDecimals > 18) revert InvalidDecimals();
+        if (tickSpacing <= 0) revert InvalidTickSpacing();
         try IB20Like(token).decimals() returns (uint8 actualDecimals) {
             if (actualDecimals != tokenDecimals) revert DecimalsMismatch();
         } catch {
@@ -49,10 +61,11 @@ contract CirclaAssetRegistry is Ownable {
             token: token,
             priceFeed: priceFeed,
             tokenDecimals: tokenDecimals,
+            tickSpacing: tickSpacing,
             maxTradeAmount: maxTradeAmount,
             enabled: enabled
         });
-        emit AssetConfigured(token, priceFeed, tokenDecimals, maxTradeAmount, enabled);
+        emit AssetConfigured(token, priceFeed, tokenDecimals, tickSpacing, maxTradeAmount, enabled);
     }
 
     function setRouter(address router, bool approved) external onlyOwner {
