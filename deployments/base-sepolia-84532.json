@@ -1,16 +1,16 @@
 {
     "chainId": 84532,
     "chainName": "base-sepolia",
-    "deployer": "0x3f5b96a494061f7338da529e3047809ac6a7fb84",
-    "block": 46344681,
+    "deployer": "0x53A41e754A442C6A1Ead65a606663F97eb73f266",
+    "block": 46415152,
     "contracts": {
-        "usdc": "0x678778D9A12cE7Ea2dd2A4AA0390Ff0266f8472c",
-        "stock": "0x8014ad94FFF3Cc7CD7f3D559d5E6e10Bd166c761",
-        "feed": "0xBf33d9aca48291d306fbf785715596e8CEB2e9ab",
-        "policies": "0x86754C44f5ACA0C6B0d9B6106048f4c07Bec89c4",
-        "router": "0x49F96F3d59f694346F446B681642CFC707a7D6BA",
-        "registry": "0xdBab28D68B9542Cc2673eE99a79e9e380b83032A",
-        "vault": "0x5E5785C04cC3Bc245130eCB351AaEBbB94138df1"
+        "usdc": "0xc0e9b26D27A8CE878d09f9ee34331Fa8678d7A49",
+        "stock": "0x89BcBdFFF03a9128F177b6656e4aCAba02567C3E",
+        "feed": "0xcE45bA3C91D47309F9A60F0Cee636ee49684D373",
+        "policies": "0xa916b1F5cd7E2f07aA9e641fa1A3A8D1cFbFF8bb",
+        "router": "0x06aeb0a0DaC81F9621204a540467586C3b97b947",
+        "registry": "0x3B2A68f82a53d79FC25d9B45Fc5d391C302036f4",
+        "vault": "0x735a396B1bA1E7F9e1f67901c966152951029e3a"
     },
     "vaultConfig": {
         "circleName": "CIRCLA Sepolia Test Circle",
@@ -18,19 +18,9 @@
         "quorum": 2,
         "contributionTarget": 250000000,
         "perTradeLimit": 1000000000,
-        "proposalTTL": 1800
+        "proposalTTL": 1800,
+        "tickSpacing": 10
     },
-    "transactions": {
-        "usdc": "0x083a3d1bfd834771a8bb2762a5e3eaebbd7d741a48e0e82a6137b40388ea4ef8",
-        "stock": "0xa6466e1079b35e7dcd1a9c580607b6acce9dc5bf25fdf906a6e714c69c90d3ef",
-        "feed": "0x32a5ac9ac93a5a8ce506248fda8449e5a8aac1ebe930c20edcce8a9e7e1cf757",
-        "policies": "0x1327e3f2ab3686d218842eb1b4202a0cf01a7fa1b779023f92b43003e4b46bcb",
-        "router": "0x54492e54cc8fe0772580b3185e5a80a84d9823bdaf85375a393034b6c230249d",
-        "registry": "0x9ca26c4776301f2df965cb2057775463663d206bf3bfc5b279142c6a48af6195",
-        "vault": "0x0185effc0b4eb1dd3a71353c38fc2766ee59eb511fe566850b7421b2bdbc36fa",
-        "mintRouter": "0xb77188e42818a54fa438a325aeed49e7fffe2d807da07e885e4d41c21a7f30a2",
-        "mintDeployer": "0x847a44fcaf8ee83a46cbdbdc3dcf19eedf9ad45c445103eb2683504f9613f5d7"
-    },
-    "note": "Test-only stack on Base Sepolia. Mock B20-compat asset, not a Coinbase Tokenized Stock. Mainnet Quest demo must use official B20 addresses from base.org/stocks.",
+    "note": "Test-only stack on Base Sepolia running Slipstream-style execution (exactInputSingle, tickSpacing 10). Mock B20-compat asset, not a Coinbase Tokenized Stock. Mainnet Quest demo must use official B20 addresses from base.org/stocks. Supersedes the V1-style stack (vault 0x5E57...).",
     "explorer": "https://sepolia.basescan.org"
 }
