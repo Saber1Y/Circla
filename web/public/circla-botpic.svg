@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="CIRCLA">
+  <rect width="640" height="360" fill="#0052FF"/>
+  <g transform="translate(180,40) scale(4.375)">
+    <rect width="64" height="64" rx="16" fill="#0052FF"/>
+    <path d="M46 22 A17 17 0 1 0 46 42" fill="none" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="46" cy="32" r="4.5" fill="#FFFFFF"/>
+  </g>
+</svg>
