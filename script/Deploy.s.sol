@@ -18,7 +18,12 @@ contract Deploy is Script {
         vm.startBroadcast(deployerKey);
         registry = new CirclaAssetRegistry(deployer);
         registry.configureAsset(
-            stock, priceFeed, uint8(vm.envUint("CIRCLA_STOCK_DECIMALS")), vm.envUint("MAX_TRADE_AMOUNT"), true
+            stock,
+            priceFeed,
+            uint8(vm.envUint("CIRCLA_STOCK_DECIMALS")),
+            int24(int256(vm.envUint("CIRCLA_TICK_SPACING"))),
+            vm.envUint("MAX_TRADE_AMOUNT"),
+            true
         );
         registry.setRouter(router, true);
         vault = new CirclaVault(
