@@ -1,0 +1,35 @@
+{
+    "chainId": 84532,
+    "chain": "base-sepolia",
+    "vault": "0x735a396B1bA1E7F9e1f67901c966152951029e3a",
+    "usdc": "0xc0e9b26D27A8CE878d09f9ee34331Fa8678d7A49",
+    "stock": "0x89BcBdFFF03a9128F177b6656e4aCAba02567C3E",
+    "router": "0x06aeb0a0DaC81F9621204a540467586C3b97b947",
+    "execution": "Slipstream exactInputSingle, tickSpacing 10",
+    "members": [
+        "0x53A41e754A442C6A1Ead65a606663F97eb73f266",
+        "0x11218A1627F35c11dF55b4Dbf1a059762A2E5dF5"
+    ],
+    "flow": {
+        "joinAlice": "0xbc2f83a3b67710ce1d1e0568ec49265767fc3f73b09c2cf94a928053d699c97e",
+        "joinCarol": "0xa6d6c1610be5e19470d3e3b5a7ec177350080b6d18fbe2bd21ebaf6623245adc",
+        "depositAlice": "0x3987afef8b6b67c5fb0e94b2d71f0ecd1f1a0904ff28fe65859a4349c98a9b49",
+        "depositCarol": "0x8b4a230891a17fd55278cf65754bf2856fb7ced4787d6046de4cac244d6defa8",
+        "createProposal": "0xac12db6899d56b8ad32cd59e63b84cfd8e5063ea1b16a652d83739d01df95775",
+        "voteAlice": "0xdb9fd890f7b4829ee1ab153e123e8e9316d331c54fcfe428c45accc7a9647480",
+        "voteCarol": "0x9a905fae84f837a2a7d9593935808ffc4c16cf67c61887dc70c5a381bd8cb5c4",
+        "executeProposal": "0x0141877bee7a9c13f68d0494882870d86453b2632f34d64620af1dfd5c161eff"
+    },
+    "results": {
+        "poolValue": "20800000",
+        "vaultUsdcBalance": "20000000",
+        "vaultStockRaw": "800000",
+        "vaultStockScaled": "800000",
+        "proposalId": 1,
+        "amountIn": "80000000",
+        "amountOut": "800000",
+        "minAmountOut": "792000"
+    },
+    "explorerBase": "https://sepolia.basescan.org/tx/",
+    "note": "Full governed Slipstream flow on fresh stack: join, deposits, proposal, 2/2 votes, exactInputSingle execution. Supersedes the V1-style proof."
+}
