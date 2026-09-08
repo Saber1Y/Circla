@@ -34,29 +34,35 @@ export function createCircleStore({ vaultAddress, circlesFile = process.env.CIRC
   // was mapped. The mapping is persistent so restarts never re-bind a group.
   function getCircle(chatId) {
     const circles = readCircles();
+    const entry = circles[String(chatId)];
     return {
       chatId: String(chatId),
-      vault: circles[String(chatId)]?.vault ?? vaultAddress,
-      isDefault: !(circles[String(chatId)]?.vault),
+      vault: entry?.vault ?? vaultAddress,
+      title: entry?.title ?? "",
+      isDefault: !entry?.vault,
     };
   }
 
-  // mapCircle(chatId, vault): bind a group to a specific vault.
-  function mapCircle(chatId, vault) {
+  // mapCircle(chatId, vault, title): bind a group to a vault and record the
+  // group title. The title feeds the Mini App header via web/app/app/circles.ts,
+  // because Telegram does not always attach `chat` to initData for group
+  // launches through the t.me Direct Link.
+  function mapCircle(chatId, vault, title = "") {
     const circles = readCircles();
-    circles[String(chatId)] = { vault, boundAt: new Date().toISOString() };
+    circles[String(chatId)] = { vault, title, boundAt: new Date().toISOString() };
     writeCircles(circles);
     return getCircle(chatId);
   }
 
   // listCircles(): every chat currently bound to a vault. Used at startup to
   // restore the onchain watchers for all groups, and by /start_syndicate to
-  // avoid double-starting.
+  // avoid double-starting. Also regenerates the web title catalog.
   function listCircles() {
     const circles = readCircles();
     return Object.entries(circles).map(([chatId, entry]) => ({
       chatId,
       vault: entry.vault,
+      title: entry.title ?? "",
       isDefault: false,
     }));
   }

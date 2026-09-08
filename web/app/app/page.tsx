@@ -40,6 +40,7 @@ import {
   vaultAbi,
 } from "./constants";
 import type { Abi } from "viem";
+import { circleTitleFor } from "./circles";
 
 const telegram = () => import("@twa-dev/sdk");
 
@@ -260,14 +261,10 @@ export default function AppPage() {
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-[#f5f3ee] text-[#101114]">
       <Header
-        name={chatTitle || ((nameRes?.result as string | undefined) ?? "CIRCLA pool")}
+        name={chatTitle || circleTitleFor(vault) || ((nameRes?.result as string | undefined) ?? "CIRCLA pool")}
         members={(membersRes?.result as string[] | undefined)?.length ?? 0}
         onRefresh={refresh}
       />
-
-      <div className="px-5 pb-3 text-center font-mono text-[10px] leading-tight text-[#a8a29e]">
-        build gctitle-2 · title from {chatTitle ? "telegram group" : "onchain circle"} · inTMA {String(isTma)}
-      </div>
 
       {!isConnected ? (
         <ConnectScreen
