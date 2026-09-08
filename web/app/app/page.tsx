@@ -22,14 +22,13 @@ import {
   Vote,
   Wallet,
 } from "lucide-react";
-import { formatUnits, parseUnits } from "viem";
+import { formatUnits, isAddress, parseUnits } from "viem";
 import {
   EXPLORER,
   NVDAc,
   REGISTRY,
   ROUTER,
   USDC,
-  VAULT,
   registryAbi,
   usdcAbi,
   vaultAbi,
@@ -91,6 +90,14 @@ const errMsg = (e: unknown) =>
     (e as Error)?.message ??
     String(e));
 
+// The vault is supplied per-group via ?vault=0x… in the query string.
+// There is deliberately no default: without a vault the app shows a notice.
+const VAULT_RE = /^0x[a-fA-F0-9]{40}$/i;
+const parseVault = (search: string) => {
+  const v = new URLSearchParams(search).get("vault")?.trim() ?? "";
+  return v && VAULT_RE.test(v) && isAddress(v) ? v : undefined;
+};
+
 export default function AppPage() {
   const [params, setParams] = useState<URLSearchParams | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -123,18 +130,29 @@ export default function AppPage() {
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
 
+  // No default vault. ?vault=0x… comes from the bot per group chat.
+  const rawVault = params?.get("vault")?.trim() ?? "";
+  const vault: `0x${string}` | undefined =
+    rawVault && VAULT_RE.test(rawVault) && isAddress(rawVault)
+      ? (rawVault as `0x${string}`)
+      : undefined;
+  const hasVault = Boolean(vault);
+  // placeholder never called because every query is vault-gated
+  const V = (vault ?? "0x0000000000000000000000000000000000000000") as `0x${string}`;
+
   const snapshot = useReadContracts({
     contracts: [
-      { address: VAULT as `0x${string}`, abi: vaultAbi as Abi, functionName: "circleName" },
-      { address: VAULT as `0x${string}`, abi: vaultAbi as Abi, functionName: "members" },
-      { address: VAULT as `0x${string}`, abi: vaultAbi as Abi, functionName: "totalUnits" },
-      { address: VAULT as `0x${string}`, abi: vaultAbi as Abi, functionName: "quorum" },
-      { address: VAULT as `0x${string}`, abi: vaultAbi as Abi, functionName: "portfolioAsset" },
-      { address: VAULT as `0x${string}`, abi: vaultAbi as Abi, functionName: "proposalCount" },
-      { address: VAULT as `0x${string}`, abi: vaultAbi as Abi, functionName: "poolValue" },
-      { address: VAULT as `0x${string}`, abi: vaultAbi as Abi, functionName: "adjustedAssetBalance" },
+      { address: V, abi: vaultAbi as Abi, functionName: "circleName" },
+      { address: V, abi: vaultAbi as Abi, functionName: "members" },
+      { address: V, abi: vaultAbi as Abi, functionName: "totalUnits" },
+      { address: V, abi: vaultAbi as Abi, functionName: "quorum" },
+      { address: V, abi: vaultAbi as Abi, functionName: "portfolioAsset" },
+      { address: V, abi: vaultAbi as Abi, functionName: "proposalCount" },
+      { address: V, abi: vaultAbi as Abi, functionName: "poolValue" },
+      { address: V, abi: vaultAbi as Abi, functionName: "adjustedAssetBalance" },
       { address: NVDAc as `0x${string}`, abi: registryAbi as Abi, functionName: "getAsset", args: [NVDAc as `0x${string}`] },
     ] as UseReadContractsParameters["contracts"],
+    query: { enabled: hasVault },
   });
 
   const [
@@ -149,19 +167,19 @@ export default function AppPage() {
   }, [membersRes?.result, address]);
 
   const myUnits = useReadContract({
-    address: VAULT as `0x${string}`,
+    address: V,
     abi: vaultAbi as Abi,
     functionName: "memberUnits",
     args: [address as `0x${string}`],
-    query: { enabled: Boolean(address && isMember) },
+    query: { enabled: Boolean(address && isMember && hasVault) },
   });
 
   const latestProposal = useReadContract({
-    address: VAULT as `0x${string}`,
+    address: V,
     abi: vaultAbi as Abi,
     functionName: "proposals",
     args: [proposalCount],
-    query: { enabled: proposalCount > 0n },
+    query: { enabled: proposalCount > 0n && hasVault },
   });
 
   const usdcBalance = useReadContract({
@@ -176,8 +194,8 @@ export default function AppPage() {
     address: USDC as `0x${string}`,
     abi: usdcAbi as Abi,
     functionName: "allowance",
-    args: [address as `0x${string}`, VAULT as `0x${string}`],
-    query: { enabled: Boolean(address) },
+    args: [address as `0x${string}`, V],
+    query: { enabled: Boolean(address && hasVault) },
   });
 
   const proposal: Proposal | undefined = toProposal(latestProposal.data);
@@ -193,6 +211,32 @@ export default function AppPage() {
     usdcBalance.refetch();
     usdcAllowance.refetch();
   };
+
+  if (params === null) {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center bg-[#f5f3ee] px-8 text-center text-[#57534e]">
+        <Loader2 size={20} className="animate-spin" />
+        <p className="mt-3 text-[13px]">Loading circle…</p>
+      </div>
+    );
+  }
+
+  if (!hasVault) {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center bg-[#f5f3ee] px-8 text-center">
+        <div className="grid h-14 w-14 place-items-center rounded-2xl border border-[#e3dfd7] bg-white">
+          <Lock size={20} />
+        </div>
+        <h2 className="mt-4 text-[19px] font-semibold tracking-[-0.01em] text-[#101114]">
+          No circle selected
+        </h2>
+        <p className="mt-2 max-w-[280px] text-[13px] leading-relaxed text-[#57534e]">
+          Open this Mini App from your CIRCLA group to load that circle&apos;s vault.
+          Each group has its own vault - there is no shared default.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-[#f5f3ee] text-[#101114]">
@@ -248,6 +292,7 @@ export default function AppPage() {
             <ActionsView
               isMember={isMember}
               address={address}
+              vault={vault}
               myUnits={isMember ? (myUnits.data as bigint | undefined) : undefined}
               proposal={proposal}
               usdcBalance={usdcBalance.data as bigint | undefined}
@@ -469,6 +514,7 @@ function VaultView({
 function ActionsView({
   isMember,
   address,
+  vault,
   myUnits,
   proposal,
   usdcBalance,
@@ -484,6 +530,7 @@ function ActionsView({
 }: {
   isMember: boolean;
   address?: string;
+  vault?: `0x${string}`;
   myUnits?: bigint;
   proposal?: Proposal;
   usdcBalance?: bigint;
@@ -500,7 +547,7 @@ function ActionsView({
   return (
     <div className="mx-4 mt-3 space-y-3 pb-4">
       {!isMember ? (
-        <JoinCard onSuccess={onSuccess} />
+        <JoinCard vault={vault} onSuccess={onSuccess} />
       ) : (
         <>
           <DepositCard
@@ -508,6 +555,7 @@ function ActionsView({
             setDeposit={setDeposit}
             usdcBalance={usdcBalance}
             allowance={usdcAllowance}
+            vault={vault}
             onSuccess={onSuccess}
           />
           <ProposeCard
@@ -516,13 +564,17 @@ function ActionsView({
             slippage={slippage}
             setSlippage={setSlippage}
             asset={asset}
+            vault={vault}
             onSuccess={onSuccess}
           />
-          {proposal && <ProposalCard proposal={proposal} quorum={0} isMember onSuccess={onSuccess} />}
+          {proposal && (
+            <ProposalCard proposal={proposal} quorum={0} isMember vault={vault} onSuccess={onSuccess} />
+          )}
           <WithdrawCard
             myUnits={myUnits}
             asset={asset}
             address={address ?? ""}
+            vault={vault}
             onSuccess={onSuccess}
           />
         </>
@@ -531,7 +583,7 @@ function ActionsView({
   );
 }
 
-function JoinCard({ onSuccess }: { onSuccess: () => void }) {
+function JoinCard({ vault, onSuccess }: { vault?: `0x${string}`; onSuccess: () => void }) {
   const { writeContractAsync, isPending, error, data } = useWriteContract();
   const tx = useWaitForTransactionReceipt({ hash: data });
   const [status, setStatus] = useState<string | null>(null);
@@ -543,8 +595,9 @@ function JoinCard({ onSuccess }: { onSuccess: () => void }) {
   const join = async () => {
     setStatus(null);
     try {
+      if (!vault) throw new Error("No circle selected.");
       await writeContractAsync({
-        address: VAULT as `0x${string}`,
+        address: vault,
         abi: vaultAbi as Abi,
         functionName: "join",
       });
@@ -578,12 +631,14 @@ function DepositCard({
   setDeposit,
   usdcBalance,
   allowance,
+  vault,
   onSuccess,
 }: {
   deposit: string;
   setDeposit: (v: string) => void;
   usdcBalance?: bigint;
   allowance?: bigint;
+  vault?: `0x${string}`;
   onSuccess: () => void;
 }) {
   const { writeContractAsync, isPending, error } = useWriteContract();
@@ -613,9 +668,10 @@ function DepositCard({
 
   const runDeposit = async () => {
     try {
+      if (!vault) throw new Error("No circle selected.");
       const raw = parseUnits(deposit, 6);
       const h = await writeContractAsync({
-        address: VAULT as `0x${string}`,
+        address: vault,
         abi: vaultAbi as Abi,
         functionName: "deposit",
         args: [raw],
@@ -631,13 +687,14 @@ function DepositCard({
 
   const run = async () => {
     try {
+      if (!vault) throw new Error("No circle selected.");
       const raw = parseUnits(deposit, 6);
       if (needsApprove) {
         const approveHash2 = await writeContractAsync({
           address: USDC as `0x${string}`,
           abi: usdcAbi as Abi,
           functionName: "approve",
-          args: [VAULT as `0x${string}`, raw],
+          args: [vault, raw],
         });
         setTxHash(approveHash2);
         setApproveHash(approveHash2);
@@ -681,6 +738,7 @@ function ProposeCard({
   slippage,
   setSlippage,
   asset,
+  vault,
   onSuccess,
 }: {
   propose: string;
@@ -688,6 +746,7 @@ function ProposeCard({
   slippage: string;
   setSlippage: (v: string) => void;
   asset?: [string, string, number, number, bigint, boolean];
+  vault?: `0x${string}`;
   onSuccess: () => void;
 }) {
   const { writeContractAsync, isPending, error } = useWriteContract();
@@ -723,6 +782,7 @@ function ProposeCard({
 
   const run = async () => {
     try {
+      if (!vault) throw new Error("No circle selected.");
       const amountIn = parseUnits(propose, 6);
       let minAmountOut = amountIn;
       if (quoteUsd && quoteUsd > 0n) {
@@ -734,7 +794,7 @@ function ProposeCard({
         minAmountOut = (minAmountOut * BigInt(Math.round((1 - slippagePct) * 1000))) / 1000n;
       }
       const h = await writeContractAsync({
-        address: VAULT as `0x${string}`,
+        address: vault,
         abi: vaultAbi as Abi,
         functionName: "createProposal",
         args: [NVDAc as `0x${string}`, ROUTER as `0x${string}`, amountIn, minAmountOut],
@@ -789,12 +849,14 @@ function ProposalCard({
   quorum,
   compact = false,
   isMember,
+  vault,
   onSuccess,
 }: {
   proposal: Proposal;
   quorum: number;
   compact?: boolean;
   isMember: boolean;
+  vault?: `0x${string}`;
   onSuccess?: () => void;
 }) {
   const { writeContractAsync, isPending, error } = useWriteContract();
@@ -810,8 +872,9 @@ function ProposalCard({
   const action = async (fn: "vote" | "executeProposal", args: unknown[]) => {
     setStep(fn);
     try {
+      if (!vault) throw new Error("No circle selected.");
       const h = await writeContractAsync({
-        address: VAULT as `0x${string}`,
+        address: vault,
         abi: vaultAbi as Abi,
         functionName: fn,
         args,
@@ -875,11 +938,13 @@ function WithdrawCard({
   myUnits,
   asset,
   address,
+  vault,
   onSuccess,
 }: {
   myUnits?: bigint;
   asset?: [string, string, number, number, bigint, boolean];
   address: string;
+  vault?: `0x${string}`;
   onSuccess: () => void;
 }) {
   const { writeContractAsync, isPending, error } = useWriteContract();
@@ -900,11 +965,12 @@ function WithdrawCard({
 
   const run = async () => {
     try {
+      if (!vault) throw new Error("No circle selected.");
       setTxHash(null);
       const units = myUnits ?? 0n;
       if (mode === "raw") {
         const h = await writeContractAsync({
-          address: VAULT as `0x${string}`,
+          address: vault,
           abi: vaultAbi as Abi,
           functionName: "withdraw",
           args: [units, address as `0x${string}`],
@@ -920,7 +986,7 @@ function WithdrawCard({
           minAmountOut = (minAmountOut * 950n) / 1000n; // 5% slippage guard
         }
         const h = await writeContractAsync({
-          address: VAULT as `0x${string}`,
+          address: vault,
           abi: vaultAbi as Abi,
           functionName: "withdrawAsUSDC",
           args: [units, address as `0x${string}`, ROUTER as `0x${string}`, minAmountOut],

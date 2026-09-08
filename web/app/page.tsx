@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Users, LineChart, Smartphone, Play } from "lucide-react";
 
@@ -24,13 +24,11 @@ const SecurityDiagram = dynamic(() => import("@/components/SecurityDiagram"), {
   ),
 });
 
-const VAULT = process.env.NEXT_PUBLIC_CIRCLA_VAULT_ADDRESS || "";
+const VAULT_RE = /^0x[a-fA-F0-9]{40}$/i;
 const TG_URL = process.env.NEXT_PUBLIC_TELEGRAM_URL || "https://t.me/circlabasebot";
 const TG_APP_URL = process.env.NEXT_PUBLIC_TELEGRAM_APP_URL || TG_URL;
 const LOOM_URL = process.env.NEXT_PUBLIC_LOOM_URL || "";
 const EXPLORER = "https://basescan.org";
-const vaultLink = VAULT ? `${EXPLORER}/address/${VAULT}` : "#";
-const isLive = Boolean(VAULT && VAULT.startsWith("0x"));
 
 function Avatar({ initial, bot }: { initial: string; bot?: boolean }) {
   return (
@@ -117,6 +115,15 @@ function BotMsg({
 
 export default function Landing() {
   const reduceMotion = useReducedMotion();
+  const [vault, setVault] = useState("");
+  const isLive = Boolean(vault && VAULT_RE.test(vault));
+  const vaultLink = isLive ? `${EXPLORER}/address/${vault}` : "#";
+
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("vault");
+    if (raw) setVault(raw.trim());
+  }, []);
+
   const anim = (delay = 0) =>
     reduceMotion
       ? {}
@@ -353,7 +360,7 @@ export default function Landing() {
                   rel="noreferrer"
                   className="font-mono text-lg font-bold text-[#0052FF] hover:underline"
                 >
-                  {VAULT.slice(0, 6)}…{VAULT.slice(-4)} ↗
+                  {vault.slice(0, 6)}…{vault.slice(-4)} ↗
                 </a>
               ) : (
                 <p className="font-mono text-lg font-bold text-[#101114]">
@@ -465,7 +472,7 @@ export default function Landing() {
             <p className="font-mono text-[10px] leading-relaxed text-[#918d85]">
               CirclaVault{" "}
               <span className="text-[#0052FF]">
-                {VAULT.slice(0, 10)}…{VAULT.slice(-6)}
+                {isLive ? `${vault.slice(0, 10)}…${vault.slice(-6)}` : "0x…"}
               </span>{" "}
               · NVDAc{" "}
               0xb20000000000000000000078ee7ce2fE4908108C · Basescan-verified

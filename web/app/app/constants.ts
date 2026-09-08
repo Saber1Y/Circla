@@ -1,6 +1,5 @@
 import { parseAbi } from "viem";
 
-export const VAULT = process.env.NEXT_PUBLIC_CIRCLA_VAULT_ADDRESS ?? "";
 export const USDC = process.env.NEXT_PUBLIC_CIRCLA_USDC_ADDRESS ?? "";
 export const NVDAc = process.env.NEXT_PUBLIC_CIRCLA_STOCK_ADDRESS ?? "";
 export const ROUTER = process.env.NEXT_PUBLIC_CIRCLA_ROUTER_ADDRESS ?? "";

@@ -22,14 +22,17 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
 
   const appUrl = tmaUrl ?? process.env.CIRCLA_TMA_URL ?? 'https://circla.example.com/app';
   const boundCircle = (ctx) => store.getCircle(ctx.chat?.id);
+  // Every app link carries the group's own vault — the app has no default.
+  const appUrlFor = (circle, query = '') => {
+    const base = query ? `${appUrl}?${query}&vault=${circle.vault}` : `${appUrl}?vault=${circle.vault}`;
+    return base;
+  };
   // Telegram only allows web_app buttons in private chats; groups/channels must
   // use a plain URL button. Easiest for the demo, works everywhere.
   const appButton = (ctx, label, url = appUrl) =>
     ctx.chat?.type === 'private'
       ? Markup.button.webApp(label, url)
       : Markup.button.url(label, url);
-  const withAppButton = (ctx, text) =>
-    Markup.inlineKeyboard([[appButton(ctx, 'Open CIRCLA app')]]);
 
   // Every broadcasted event is attributed to the vault bound to that chat.
   const broadcast = (chatId, text, extra = {}) => {
@@ -47,7 +50,7 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
         'Use /start_syndicate, /status, /portfolio, /propose, or /help.',
       ].join('\n'),
       Markup.inlineKeyboard([
-        [appButton(ctx, 'Open CIRCLA app')],
+        [appButton(ctx, 'Open CIRCLA app', appUrlFor(boundCircle(ctx)))],
       ]),
     );
   });
@@ -64,9 +67,9 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
     const circle = store.getCircle(chatId);
     const q = await readQuorum(client, circle.vault);
     const buttons = [
-      appButton(ctx, 'Contribute USDC', `${appUrl}`),
-      appButton(ctx, 'Vote', `${appUrl}?view=vote`),
-      appButton(ctx, 'Portfolio', `${appUrl}?view=portfolio`),
+      appButton(ctx, 'Contribute USDC', appUrlFor(circle)),
+      appButton(ctx, 'Vote', appUrlFor(circle, 'view=vote')),
+      appButton(ctx, 'Portfolio', appUrlFor(circle, 'view=portfolio')),
     ];
     await ctx.reply(
       [
@@ -86,15 +89,15 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
   });
 
   bot.command('propose', async (ctx) => {
-    await handleProposal(ctx, ctx.message.text, boundCircle(ctx));
+    await handleProposal(ctx, ctx.message.text, boundCircle(ctx), appButton, appUrl);
   });
 
   bot.command('status', async (ctx) => {
-    await replySnapshot(ctx, client, boundCircle(ctx).vault, false);
+    await replySnapshot(ctx, client, boundCircle(ctx).vault, false, appButton, appUrl);
   });
 
   bot.command('portfolio', async (ctx) => {
-    await replySnapshot(ctx, client, boundCircle(ctx).vault, true);
+    await replySnapshot(ctx, client, boundCircle(ctx).vault, true, appButton, appUrl);
   });
 
   bot.command('votes', async (ctx) => {
@@ -134,7 +137,7 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
         '',
         'No seed phrases. Every deposit is your own onchain transaction.',
       ].join('\n'),
-      Markup.inlineKeyboard([appButton(ctx, 'Deposit USDC', `${appUrl}?deposit=${intent.amountUsdc}`)]),
+      Markup.inlineKeyboard([appButton(ctx, 'Deposit USDC', appUrlFor(boundCircle(ctx), `deposit=${intent.amountUsdc}`))]),
     );
   });
 
@@ -145,7 +148,7 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
     const p = await readProposal(client, circle.vault);
     await ctx.reply(
       `Tap to cast your real vote on Proposal #${p.id} (${intent.support ? 'YES' : 'NO'}) — signed with your own wallet.`,
-      Markup.inlineKeyboard([appButton(ctx, 'Open CIRCLA app', `${appUrl}?vote=${intent.support ? 'yes' : 'no'}&proposal=${p.id}`)]),
+      Markup.inlineKeyboard([appButton(ctx, 'Open CIRCLA app', appUrlFor(circle, `vote=${intent.support ? 'yes' : 'no'}&proposal=${p.id}`))]),
     );
   });
 
@@ -156,7 +159,7 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
         'If your wallet clears Coinbase TRANSFER_RECEIVER_POLICY, you withdraw raw NVDAc.',
         'Otherwise the vault liquidates your share to USDC via Aerodrome automatically.',
       ].join('\n'),
-      Markup.inlineKeyboard([appButton(ctx, 'Open CIRCLA app', `${appUrl}?view=withdraw`)]),
+      Markup.inlineKeyboard([appButton(ctx, 'Open CIRCLA app', appUrlFor(boundCircle(ctx), 'view=withdraw'))]),
     );
   });
 
@@ -169,7 +172,7 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
 
   bot.on('text', async (ctx) => {
     if (ctx.message.text.startsWith('/')) return;
-    if (/^buy\s+/i.test(ctx.message.text)) return handleProposal(ctx, ctx.message.text, boundCircle(ctx));
+    if (/^buy\s+/i.test(ctx.message.text)) return handleProposal(ctx, ctx.message.text, boundCircle(ctx), appButton, appUrl);
     await ctx.reply('Try: Buy 100 USDC of NVDAc, /contribute 50, /start_syndicate, /status, or /portfolio.');
   });
 
@@ -233,10 +236,10 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
   });
 }
 
-async function handleProposal(ctx, message, circle) {
+async function handleProposal(ctx, message, circle, appButton, tmaUrl) {
   try {
     const proposal = buildProposalPreview(message);
-    const query = `?propose=${proposal.amountUsdc}&asset=${proposal.asset.symbol}`;
+    const query = `propose=${proposal.amountUsdc}&asset=${proposal.asset.symbol}&vault=${circle.vault}`;
     await ctx.reply(
       [
         'CIRCLA proposal preview',
@@ -249,14 +252,14 @@ async function handleProposal(ctx, message, circle) {
         '',
         'Sign the proposal onchain in the Mini App.',
       ].join('\n'),
-      Markup.inlineKeyboard([appButton(ctx, 'Open CIRCLA app', `${process.env.CIRCLA_TMA_URL ?? 'https://circla.example.com/app'}${query}`)]),
+      Markup.inlineKeyboard([appButton(ctx, 'Open CIRCLA app', `${tmaUrl}?${query}`)]),
     );
   } catch (error) {
     await ctx.reply(`Proposal rejected: ${error.message}`);
   }
 }
 
-async function replySnapshot(ctx, client, vaultAddress, includeAsset) {
+async function replySnapshot(ctx, client, vaultAddress, includeAsset, appButton, tmaUrl) {
   try {
     const snapshot = await readVaultSnapshot(client, vaultAddress);
     const lines = [
@@ -271,7 +274,7 @@ async function replySnapshot(ctx, client, vaultAddress, includeAsset) {
       lines.push(`Portfolio asset: ${getAddress(snapshot.asset)}`);
       lines.push(`Adjusted balance: ${formatUnits(snapshot.adjustedBalance, 8)}`);
     }
-    await ctx.reply(lines.join('\n'), Markup.inlineKeyboard([appButton(ctx, 'Open CIRCLA app', `${process.env.CIRCLA_TMA_URL ?? 'https://circla.example.com/app'}`)]));
+    await ctx.reply(lines.join('\n'), Markup.inlineKeyboard([appButton(ctx, 'Open CIRCLA app', `${tmaUrl}?vault=${vaultAddress}`)]));
   } catch (error) {
     await ctx.reply(`Vault read unavailable: ${error.shortMessage ?? error.message}`);
   }
