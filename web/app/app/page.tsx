@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { renderSVG } from "uqr";
 import {
   useAccount,
   useConnect,
@@ -15,12 +17,16 @@ import {
   ArrowUpRight,
   Check,
   ChevronRight,
+  Copy,
   Loader2,
   Lock,
+  QrCode,
   RefreshCw,
   ShieldCheck,
+  Smartphone,
   Vote,
   Wallet,
+  X,
 } from "lucide-react";
 import { formatUnits, isAddress, parseUnits } from "viem";
 import {
@@ -369,6 +375,23 @@ function ConnectScreen({
   isTma: boolean;
   vault: `0x${string}`;
 }) {
+  const [wcUri, setWcUri] = useState<string | null>(null);
+
+  // wagmi's walletConnect connector surfaces the pairing URI through its own
+  // connector emitter as a 'message' event of type 'display_uri' (no popup,
+  // no window.opener - the phone wallet pairs over the WalletConnect relay).
+  const wcConnector = connectors.find((c) => c.type === "walletConnect");
+  useEffect(() => {
+    if (!wcConnector) return;
+    const onMessage = (message: { type?: string; data?: unknown }) => {
+      if (message.type === "display_uri" && typeof message.data === "string") {
+        setWcUri(message.data);
+      }
+    };
+    wcConnector.emitter.on("message", onMessage);
+    return () => wcConnector.emitter.off("message", onMessage);
+  }, [wcConnector]);
+
   const continueInBrowser = () => {
     const url = `${window.location.origin}${window.location.pathname}?vault=${vault}`;
     const telegramWebApp = (
@@ -393,8 +416,34 @@ function ConnectScreen({
     }
   };
 
-  if (isTma) {
-    return (
+  const startWalletConnect = () => {
+    if (!wcConnector) return;
+    setWcUri(null);
+    onConnect({ connector: wcConnector });
+  };
+
+  const closeWalletConnect = () => {
+    setWcUri(null);
+    wcConnector?.disconnect().catch(() => {});
+  };
+
+  const injectedConnector = connectors.find((c) => c.type === "injected");
+  const coinbaseConnector = connectors.find((c) => c.id === "coinbaseWalletSDK");
+
+  const phoneWalletButton = wcConnector && (
+    <button
+      key="wc"
+      onClick={startWalletConnect}
+      className="mx-auto flex w-full max-w-[300px] items-center justify-center gap-2 rounded-2xl border border-[#e3dfd7] bg-white px-5 py-3.5 text-[14px] font-semibold text-[#101114] hover:border-[#c9c4ba]"
+    >
+      <QrCode size={16} />
+      Connect a phone wallet
+      <span className="text-[11px] font-normal text-[#a8a29e]">in-app scan</span>
+    </button>
+  );
+
+  return (
+    <>
       <div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-12 text-center">
         <div className="grid h-14 w-14 place-items-center rounded-2xl border border-[#e3dfd7] bg-white">
           <Wallet size={24} />
@@ -402,56 +451,157 @@ function ConnectScreen({
         <div>
           <h2 className="text-[19px] font-semibold tracking-[-0.01em]">Connect your wallet</h2>
           <p className="mt-1 max-w-[300px] text-[13px] leading-relaxed text-[#57534e]">
-            Telegram blocks wallet sign-in popups, so we&apos;ll finish the connection in your
-            default browser.
+            {isTma
+              ? "Telegram blocks sign-in popups, so let's connect through your browser or a phone wallet."
+              : "Connect the wallet you already have, or sign in with a passkey smart wallet."}
           </p>
         </div>
-        <button
-          onClick={continueInBrowser}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#101114] px-5 py-3.5 text-[14px] font-semibold text-white"
-        >
-          Continue in browser
-          <ArrowUpRight size={15} />
-        </button>
-        {connectors[0] && (
-          <button
-            onClick={() => onConnect({ connector: connectors[0]! })}
-            className="text-[13px] font-medium text-[#a8a29e] underline-offset-2 hover:underline"
-          >
-            Try connecting here instead
-          </button>
+
+        {isTma ? (
+          <>
+            <button
+              onClick={continueInBrowser}
+              className="mx-auto flex w-full max-w-[300px] items-center justify-center gap-2 rounded-2xl bg-[#101114] px-5 py-3.5 text-[14px] font-semibold text-white"
+            >
+              Continue in browser
+              <ArrowUpRight size={15} />
+            </button>
+            {phoneWalletButton}
+            {coinbaseConnector && (
+              <button
+                onClick={() => onConnect({ connector: coinbaseConnector })}
+                className="text-[13px] font-medium text-[#a8a29e] underline-offset-2 hover:underline"
+              >
+                Try connecting here instead
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+            {injectedConnector && (
+              <button
+                onClick={() => onConnect({ connector: injectedConnector })}
+                className="mx-auto flex w-full max-w-[300px] items-center justify-center gap-2 rounded-2xl bg-[#101114] px-5 py-3.5 text-[14px] font-semibold text-white"
+              >
+                Connect Wallet
+              </button>
+            )}
+            {coinbaseConnector && (
+              <button
+                onClick={() => onConnect({ connector: coinbaseConnector })}
+                className="mx-auto flex w-full max-w-[300px] items-center justify-center gap-2 rounded-2xl border border-[#e3dfd7] bg-white px-5 py-3.5 text-[14px] font-semibold text-[#101114] hover:border-[#c9c4ba]"
+              >
+                Continue with {coinbaseConnector.name}
+              </button>
+            )}
+            {phoneWalletButton}
+          </>
         )}
+
         <p className="max-w-[260px] text-[11px] leading-relaxed text-[#a8a29e]">
           No seed phrases. Smart Wallet keys are secured with Passkeys and stored on-device.
         </p>
       </div>
-    );
-  }
+
+      <AnimatePresence>
+        {wcUri && <WalletConnectModal uri={wcUri} onClose={closeWalletConnect} />}
+      </AnimatePresence>
+    </>
+  );
+}
+
+function WalletConnectModal({ uri, onClose }: { uri: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+
+  const isTouch = useMemo(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return false;
+    // The MetaMask deeplink only resolves to a wallet app on a phone/tablet,
+    // so only offer it there.
+    return window.matchMedia("(pointer: coarse)").matches;
+  }, []);
+
+  const svg = useMemo(
+    () => renderSVG(uri, { ecc: "M", pixelSize: 4, border: 2, whiteColor: "#ffffff", blackColor: "#101114" }),
+    [uri]
+  );
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(uri);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* clipboard unavailable (embedded WebView) */
+    }
+  };
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-12 text-center">
-      <div className="grid h-14 w-14 place-items-center rounded-2xl border border-[#e3dfd7] bg-white">
-        <Wallet size={24} />
-      </div>
-      <div>
-        <h2 className="text-[19px] font-semibold tracking-[-0.01em]">Connect your wallet</h2>
-        <p className="mt-1 text-[13px] text-[#57534e]">
-          Sign in with FaceID / Passkey. Your USDC and votes are your own onchain transactions.
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onClose}
+    >
+      <motion.div
+        className="w-full max-w-sm rounded-3xl bg-white p-6"
+        initial={{ opacity: 0, scale: 0.95, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 8 }}
+        transition={{ type: "spring", stiffness: 320, damping: 26 }}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-[16px] font-semibold tracking-[-0.01em] text-[#101114]">
+              Connect a phone wallet
+            </h3>
+            <p className="mt-0.5 text-[12px] text-[#57534e]">
+              Scan with any WalletConnect-compatible wallet
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="grid h-8 w-8 place-items-center rounded-full text-[#a8a29e] hover:bg-[#f5f3ee] hover:text-[#101114]"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="mt-4 flex items-center justify-center overflow-hidden rounded-2xl border border-[#e3dfd7] bg-white px-4 py-5">
+          <div dangerouslySetInnerHTML={{ __html: svg }} />
+        </div>
+
+        <p className="mt-4 text-center text-[11px] leading-relaxed text-[#a8a29e]">
+          {isTouch
+            ? "Open the wallet on this device to finish pairing, or copy the link into it."
+            : "Open the wallet app on your phone, tap scan, and point it at the QR above."}
         </p>
-      </div>
-      {connectors.map((c) => (
-        <button
-          key={c.id}
-          onClick={() => onConnect({ connector: c })}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#101114] px-5 py-3.5 text-[14px] font-semibold text-white"
-        >
-          Continue with {c.name}
-        </button>
-      ))}
-      <p className="max-w-[260px] text-[11px] leading-relaxed text-[#a8a29e]">
-        No seed phrases. Smart Wallet keys are secured with Passkeys and stored on-device.
-      </p>
-    </div>
+        <div className={`mt-2 grid gap-2 ${isTouch ? "grid-cols-2" : "grid-cols-1"}`}>
+          {isTouch && (
+            <a
+              href={`https://metamask.app.link/wc?uri=${encodeURIComponent(uri)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-[#e3dfd7] px-3 py-2.5 text-[12px] font-semibold text-[#101114] hover:border-[#c9c4ba]"
+            >
+              <Smartphone size={14} />
+              Open in MetaMask
+            </a>
+          )}
+          <button
+            onClick={copy}
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-[#e3dfd7] px-3 py-2.5 text-[12px] font-semibold text-[#101114] hover:border-[#c9c4ba]"
+          >
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+            {copied ? "Copied" : "Copy link"}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
