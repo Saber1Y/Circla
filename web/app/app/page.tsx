@@ -576,8 +576,11 @@ function WalletConnectModal({ uri, onClose }: { uri: string; onClose: () => void
           </button>
         </div>
 
-        <div className="mt-4 flex items-center justify-center overflow-hidden rounded-2xl border border-[#e3dfd7] bg-white px-4 py-5">
-          <div dangerouslySetInnerHTML={{ __html: svg }} />
+        <div className="mt-4 flex items-center justify-center rounded-2xl border border-[#e3dfd7] bg-white px-4 py-5">
+          <div
+            className="[&_svg]:block [&_svg]:h-[184px] [&_svg]:w-[184px]"
+            dangerouslySetInnerHTML={{ __html: svg }}
+          />
         </div>
 
         <p className="mt-4 text-center text-[11px] leading-relaxed text-[#a8a29e]">
