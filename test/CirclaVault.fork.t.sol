@@ -152,4 +152,54 @@ contract CirclaVaultForkTest is Test {
         assertEq(IERC20(NVDAC).balanceOf(address(vault)), amountOut, "vault must custody real B20");
         assertGt(vault.poolValue(), 0, "portfolio must price via Chainlink feed");
     }
+
+    /// @notice After configureAsset enables AMZNc, the vault buys it through the
+    /// real Slipstream router + live USDC/AMZNc pool, proves non-NVDAc stocks
+    /// are tradable once the registry entry exists.
+    function testForkBuysAmzncAfterConfigure() public {
+        address constant_amznc = 0xb200000000000000000000d9192b6B456483C2E8;
+        address amzncFeed = 0x06A8E4b3aBB3B7543d8396FB2B763d22820cB295;
+        address amzncPool = 0xd03Bc8C7F2FAedCe2aac81bF0444AEA08Ea06E9b;
+
+        vm.prank(address(this));
+        registry.configureAsset(constant_amznc, amzncFeed, 8, 10, 1_000e6, true);
+
+        vm.etch(constant_amznc, address(new ForkMockB20()).code);
+        deal(constant_amznc, amzncPool, 100e8);
+
+        vm.startPrank(alice);
+        IERC20(USDC).approve(address(vault), 50e6);
+        vault.deposit(50e6);
+        vm.stopPrank();
+        vm.startPrank(bob);
+        IERC20(USDC).approve(address(vault), 50e6);
+        vault.deposit(50e6);
+        vm.stopPrank();
+
+        (uint256 quoted,,,) = IQuoterV2Like(QUOTER_V2).quoteExactInputSingle(
+            IQuoterV2Like.QuoteExactInputSingleParams({
+                tokenIn: USDC,
+                tokenOut: constant_amznc,
+                amountIn: 40e6,
+                tickSpacing: 10,
+                sqrtPriceLimitX96: 0
+            })
+        );
+        assertGt(quoted, 0, "no AMZNc Slipstream liquidity");
+        uint256 minOut = quoted * 9800 / 10000;
+
+        vm.prank(alice);
+        uint256 proposalId = vault.createProposal(constant_amznc, SLIPSTREAM_ROUTER, 40e6, minOut);
+        vm.prank(alice);
+        vault.vote(proposalId, true);
+        vm.prank(bob);
+        vault.vote(proposalId, true);
+
+        vm.prank(alice);
+        uint256 amountOut = vault.executeProposal(SLIPSTREAM_ROUTER, proposalId, 10);
+
+        assertGe(amountOut, minOut, "slippage protection violated");
+        assertEq(IERC20(constant_amznc).balanceOf(address(vault)), amountOut, "vault must custody AMZNc");
+        assertGt(vault.poolValue(), 0, "portfolio must price via Chainlink feed");
+    }
 }
