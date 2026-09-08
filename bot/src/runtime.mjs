@@ -24,6 +24,23 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
   const store = createCircleStore({ vaultAddress });
   let watchers = new Map();
 
+  // Only respond to chatter that is directed at the bot. Commands are always
+  // targeted, so they pass through. Plain text in a group must either be a
+  // reply to one of the bot's own messages or a @mention of the bot; anything
+  // else is group conversation and is ignored. Private chats are always aimed
+  // at the bot.
+  bot.use(async (ctx, next) => {
+    const text = ctx.message?.text ?? '';
+    if (text && !text.startsWith('/')) {
+      const isPrivate = ctx.chat?.type === 'private';
+      const username = ctx.botInfo?.username ?? '';
+      const mentionsBot = username !== '' && new RegExp(`@${username}`, 'i').test(text);
+      const isReplyToBot = ctx.message?.reply_to_message?.from?.id === ctx.botInfo?.id;
+      if (!isPrivate && !mentionsBot && !isReplyToBot) return;
+    }
+    return next();
+  });
+
   const appUrl = tmaUrl ?? process.env.CIRCLA_TMA_URL ?? 'https://circla.example.com/app';
   const directAppLink = process.env.CIRCLA_TMA_DIRECT_LINK ?? 'https://t.me/circlabasebot/circlabasebot';
   const boundCircle = (ctx) => store.getCircle(ctx.chat?.id);
