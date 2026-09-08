@@ -10,9 +10,17 @@ const vaultAbi = parseAbi([
   'function adjustedAssetBalance() view returns (uint256)',
   'function proposalCount() view returns (uint256)',
   'function quorum() view returns (uint8)',
+  'function memberUnits(address) view returns (uint256)',
   'function proposals(uint256) view returns (address proposer, address asset, address router, uint256 amountIn, uint256 minAmountOut, uint256 deadline, uint256 nonce, uint256 yesVotes, uint256 noVotes, bool executed, bool cancelled)',
   'function hasVoted(uint256, address) view returns (bool)',
 ]);
+
+// The demo vault was deployed at this block; scanning ContributionReceived
+// logs from here yields every member's lifetime deposits.
+export const VAULT_DEPLOY_BLOCK = 50985040n;
+
+// contribution events, indexed for /members
+const contributionEvent = parseAbi(['event ContributionReceived(address indexed member, uint256 amount, uint256 units)']);
 
 export function createBaseClient({rpcUrl = process.env.BASE_RPC_URL ?? 'https://mainnet.base.org'} = {}) {
   return createPublicClient({chain: base, transport: http(rpcUrl)});
@@ -77,6 +85,61 @@ export async function readProposal(client, vaultAddress, proposalId) {
     deadline: pRes[5], nonce: pRes[6], yesVotes: pRes[7], noVotes: pRes[8],
     executed: pRes[9], cancelled: pRes[10],
   };
+}
+
+export async function readMemberShares(client, vaultAddress) {
+  if (!vaultAddress) throw new Error('CIRCLA_VAULT_ADDRESS is not configured');
+  const [members, totalUnits] = await client.multicall({
+    contracts: [
+      { address: vaultAddress, abi: vaultAbi, functionName: 'members' },
+      { address: vaultAddress, abi: vaultAbi, functionName: 'totalUnits' },
+    ],
+  });
+  const m = unwrap(members);
+  const shares = await client.multicall({
+    contracts: m.map((member) => ({
+      address: vaultAddress,
+      abi: vaultAbi,
+      functionName: 'memberUnits',
+      args: [member],
+    })),
+  });
+  return {
+    totalUnits: unwrap(totalUnits),
+    members: m.map((address, i) => ({
+      address,
+      units: shares[i].status === 'success' ? shares[i].result : 0n,
+    })),
+  };
+}
+
+// Lifetime USDC each member deposited, from ContributionReceived logs.
+// Scanned in 8k-block chunks (Base RPC caps eth_getLogs payloads), then
+// dedupled - mirrors pollVaultEvents so /members works for older vaults too.
+export async function readContributionTotals(client, vaultAddress) {
+  const current = await client.getBlockNumber();
+  const MAX_RANGE = 8_000n;
+  const totals = new Map();
+  let cursor = VAULT_DEPLOY_BLOCK;
+  while (cursor <= current) {
+    const end = cursor + MAX_RANGE > current ? current : cursor + MAX_RANGE;
+    const chunk = await client.getLogs({
+      address: vaultAddress,
+      event: contributionEvent[0],
+      fromBlock: cursor,
+      toBlock: end,
+    });
+    const seen = new Set();
+    for (const log of chunk) {
+      const key = `${log.blockNumber}-${log.logIndex}-${log.transactionHash}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const member = log.args.member.toLowerCase();
+      totals.set(member, (totals.get(member) ?? 0n) + log.args.amount);
+    }
+    cursor = end + 1n;
+  }
+  return totals;
 }
 
 function unwrap(result) {

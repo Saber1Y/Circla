@@ -194,6 +194,17 @@ export default function AppPage() {
     query: { enabled: Boolean(address && isMember && hasVault) },
   });
 
+  const memberList = (membersRes?.result as string[] | undefined) ?? [];
+  const memberShares = useReadContracts({
+    contracts: memberList.map((m) => ({
+      address: V,
+      abi: vaultAbi as Abi,
+      functionName: "memberUnits",
+      args: [m as `0x${string}`],
+    })) as UseReadContractsParameters["contracts"],
+    query: { enabled: hasVault && memberList.length > 0 },
+  });
+
   const latestProposal = useReadContract({
     address: V,
     abi: vaultAbi as Abi,
@@ -227,6 +238,7 @@ export default function AppPage() {
   const refresh = () => {
     snapshot.refetch();
     myUnits.refetch();
+    memberShares.refetch();
     latestProposal.refetch();
     usdcBalance.refetch();
     usdcAllowance.refetch();
@@ -309,6 +321,9 @@ export default function AppPage() {
               isMember={isMember}
               proposal={proposal}
               maxTradeAmountUsdc={(assetConfig?.[4] ?? 100n)}
+              members={memberList}
+              memberUnitsList={(memberShares.data ?? []).map((r) => (r.result as bigint | undefined) ?? 0n)}
+              address={address}
             />
           ) : (
             <ActionsView
@@ -665,6 +680,9 @@ function VaultView({
   isMember,
   proposal,
   maxTradeAmountUsdc,
+  members,
+  memberUnitsList,
+  address,
 }: {
   poolValue?: bigint;
   totalUnits: bigint;
@@ -676,6 +694,9 @@ function VaultView({
   isMember: boolean;
   proposal?: Proposal;
   maxTradeAmountUsdc: bigint;
+  members: string[];
+  memberUnitsList: bigint[];
+  address?: string;
 }) {
   const poolTxt =
     poolValue === undefined
@@ -693,7 +714,7 @@ function VaultView({
           {[
             ["Units", formatUnits(totalUnits, 18)],
             ["Quorum", String(quorum)],
-            ["Members", "—"],
+            ["Members", String(members.length)],
           ].map(([k, v]) => (
             <div key={k} className="rounded-2xl bg-white/8 px-3 py-2.5">
               <p className="text-[10px] text-white/50">{k}</p>
@@ -719,6 +740,44 @@ function VaultView({
           <p className="mt-1 text-[12px] text-[#57534e]">
             NVDAc tokenized NVIDIA · max trade ${Number(maxTradeAmountUsdc)} · tick {assetConfig?.[3] ?? 60}
           </p>
+        </div>
+      )}
+
+      {members.length > 0 && (
+        <div className="rounded-2xl border border-[#e3dfd7] bg-white p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-[13px] font-semibold">Members</p>
+            <span className="text-[12px] text-[#57534e]">
+              {formatUnits(totalUnits, 18)} units pooled
+            </span>
+          </div>
+          <div className="mt-2 space-y-2">
+            {members.map((m, i) => {
+              const units = memberUnitsList[i] ?? 0n;
+              const shareBps = totalUnits > 0n ? (units * 10000n) / totalUnits : 0n;
+              const isYou = Boolean(address && m.toLowerCase() === address.toLowerCase());
+              return (
+                <div key={m} className="rounded-xl bg-[#f5f3ee] px-3 py-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[12px] font-semibold text-[#101114]">{slice(m, 4)}</p>
+                      {isYou && (
+                        <span className="rounded-full bg-[#101114] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+                          you
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-[#57534e]">
+                      {Number(shareBps) / 100}% of pool
+                    </p>
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-[#57534e]">
+                    {formatUnits(units, 18)} units
+                  </p>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

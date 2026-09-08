@@ -4,7 +4,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createBaseClient, readVaultSnapshot, readProposal } from './base-client.mjs';
+import { createBaseClient, readVaultSnapshot, readProposal, readMemberShares, readContributionTotals } from './base-client.mjs';
 import { buildProposalPreview } from './proposal-service.mjs';
 import { parseIntent } from './intent-parser.mjs';
 import { formatSwapReceipt, formatContribution } from './receipts.mjs';
@@ -119,7 +119,7 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
 
   bot.help(async (ctx) => {
     await ctx.reply(
-      '/start_syndicate — bind this group to its vault + open the app\n/status — live vault snapshot\n/portfolio — holdings + adjusted balance\n/votes [id] — vote count for a proposal\n/propose buy <USDC> <NVDAc|AAPLc> — proposal preview\n/contribute <USDC> — deposit via the Mini App\n/vote <yes|no> — record your vote in chat (sign onchain in the app)\n/withdraw — policy-aware exit',
+      '/start_syndicate — bind this group to its vault + open the app\n/status — live vault snapshot\n/portfolio — holdings + adjusted balance\n/members — per-member deposits, units, and pool share\n/votes [id] — vote count for a proposal\n/propose buy <USDC> <NVDAc|AAPLc> — proposal preview\n/contribute <USDC> — deposit via the Mini App\n/vote <yes|no> — record your vote in chat (sign onchain in the app)\n/withdraw — policy-aware exit',
     );
   });
 
@@ -159,11 +159,38 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
   });
 
   bot.command('status', async (ctx) => {
-    await replySnapshot(ctx, client, boundCircle(ctx).vault, false, appButton);
+    await replySnapshot(ctx, client, boundCircle(ctx), false, appButton);
   });
 
   bot.command('portfolio', async (ctx) => {
-    await replySnapshot(ctx, client, boundCircle(ctx).vault, true, appButton);
+    await replySnapshot(ctx, client, boundCircle(ctx), true, appButton);
+  });
+
+  bot.command('members', async (ctx) => {
+    const circle = boundCircle(ctx);
+    try {
+      const [{ members, totalUnits }, totals, name] = await Promise.all([
+        readMemberShares(client, circle.vault),
+        readContributionTotals(client, circle.vault),
+        readQuorum(client, circle.vault).then((q) => q.name),
+      ]);
+      const lines = [
+        circle.title || name,
+        `Members: ${members.length}`,
+        '',
+        ...members.map((s) => {
+          const deposited = totals.get(getAddress(s.address).toLowerCase()) ?? 0n;
+          const pct = totalUnits > 0n ? (s.units * 10000n) / totalUnits : 0n;
+          return [
+            getAddress(s.address),
+            `  deposited ${formatUnits(deposited, 6)} USDC · ${formatUnits(s.units, 18)} units · ${Number(pct) / 100}% of pool`,
+          ].join('\n');
+        }),
+      ];
+      await ctx.reply(lines.join('\n'), Markup.inlineKeyboard([appButton(ctx, 'Open CIRCLA app', circle)]));
+    } catch (error) {
+      await ctx.reply(`Vault read unavailable: ${error.shortMessage ?? error.message}`);
+    }
   });
 
   bot.command('votes', async (ctx) => {
@@ -258,17 +285,18 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
         lastBlock = next;
         if (events.length === 0) return;
         const q = await readQuorum(client, circle.vault);
+        const labelled = { ...q, name: circle.title || q.name };
         for (const e of events) {
           let text;
           try {
             if (['ProposalCreated', 'VoteCast'].includes(e.eventName)) {
               const proposal = await readProposal(client, circle.vault, e.args.proposalId);
-              text = formatEvent(e, { ...q, proposal });
+              text = formatEvent(e, { ...labelled, proposal });
             } else {
-              text = formatEvent(e, q);
+              text = formatEvent(e, labelled);
             }
           } catch {
-            text = formatEvent(e, q);
+            text = formatEvent(e, labelled);
           }
           await broadcast(chatId, text).catch(() => {});
         }
@@ -325,11 +353,11 @@ async function handleProposal(ctx, message, circle, appButton) {
   }
 }
 
-async function replySnapshot(ctx, client, vaultAddress, includeAsset, appButton) {
+async function replySnapshot(ctx, client, circle, includeAsset, appButton) {
   try {
-    const snapshot = await readVaultSnapshot(client, vaultAddress);
+    const snapshot = await readVaultSnapshot(client, circle.vault);
     const lines = [
-      snapshot.name,
+      circle.title || snapshot.name,
       `Members: ${snapshot.members.length}`,
       snapshot.poolValue === null
         ? 'Pool value: awaiting price feed (market closed)'
@@ -340,7 +368,6 @@ async function replySnapshot(ctx, client, vaultAddress, includeAsset, appButton)
       lines.push(`Portfolio asset: ${getAddress(snapshot.asset)}`);
       lines.push(`Adjusted balance: ${formatUnits(snapshot.adjustedBalance, 8)}`);
     }
-    const circle = { vault: vaultAddress };
     await ctx.reply(lines.join('\n'), Markup.inlineKeyboard([appButton(ctx, 'Open CIRCLA app', circle)]));
   } catch (error) {
     await ctx.reply(`Vault read unavailable: ${error.shortMessage ?? error.message}`);
