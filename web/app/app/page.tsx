@@ -265,6 +265,10 @@ export default function AppPage() {
         onRefresh={refresh}
       />
 
+      <div className="px-5 pb-3 text-center font-mono text-[10px] leading-tight text-[#a8a29e]">
+        build gctitle-2 · title from {chatTitle ? "telegram group" : "onchain circle"} · inTMA {String(isTma)}
+      </div>
+
       {!isConnected ? (
         <ConnectScreen
           onConnect={(c) => { void connect(c); }}
