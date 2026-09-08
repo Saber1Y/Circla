@@ -101,6 +101,7 @@ const parseVault = (search: string) => {
 export default function AppPage() {
   const [params, setParams] = useState<URLSearchParams | null>(null);
   const [startParam, setStartParam] = useState<string>("");
+  const [isTma, setIsTma] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [deposit, setDeposit] = useState("25");
   const [propose, setPropose] = useState("10");
@@ -118,6 +119,7 @@ export default function AppPage() {
         twa.setHeaderColor?.("#f5f3ee");
         twa.setBackgroundColor?.("#f5f3ee");
         setStartParam(twa.initDataUnsafe?.start_param ?? "");
+        setIsTma(Boolean(twa.initDataUnsafe?.user?.id));
       } catch {
         /* running outside Telegram (dev) */
       }
@@ -257,6 +259,8 @@ export default function AppPage() {
         <ConnectScreen
           onConnect={(c) => { void connect(c); }}
           connectors={connectors}
+          isTma={isTma}
+          vault={V}
         />
       ) : (
         <>
@@ -357,10 +361,73 @@ type ConnectArguments = Parameters<
 function ConnectScreen({
   onConnect,
   connectors,
+  isTma,
+  vault,
 }: {
   onConnect: (args: ConnectArguments) => void;
   connectors: ReturnType<typeof useConnect>["connectors"];
+  isTma: boolean;
+  vault: `0x${string}`;
 }) {
+  const continueInBrowser = () => {
+    const url = `${window.location.origin}${window.location.pathname}?vault=${vault}`;
+    const telegramWebApp = (
+      window as Window & {
+        // The @twa-dev sdk types only expose try_instant_view, but the real
+        // Telegram WebApp accepts try_attempt_close_window to hand off to the
+        // default browser instead of keeping the connection in the WebView.
+        Telegram?: {
+          WebApp?: {
+            openLink?: (
+              link: string,
+              options?: { try_attempt_close_window?: boolean }
+            ) => void;
+          };
+        };
+      }
+    ).Telegram?.WebApp;
+    if (telegramWebApp?.openLink) {
+      telegramWebApp.openLink(url, { try_attempt_close_window: true });
+    } else {
+      window.open(url, "_blank");
+    }
+  };
+
+  if (isTma) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-12 text-center">
+        <div className="grid h-14 w-14 place-items-center rounded-2xl border border-[#e3dfd7] bg-white">
+          <Wallet size={24} />
+        </div>
+        <div>
+          <h2 className="text-[19px] font-semibold tracking-[-0.01em]">Connect your wallet</h2>
+          <p className="mt-1 max-w-[300px] text-[13px] leading-relaxed text-[#57534e]">
+            Telegram blocks wallet sign-in popups, so we&apos;ll finish the connection in your
+            default browser.
+          </p>
+        </div>
+        <button
+          onClick={continueInBrowser}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#101114] px-5 py-3.5 text-[14px] font-semibold text-white"
+        >
+          Continue in browser
+          <ArrowUpRight size={15} />
+        </button>
+        {connectors[0] && (
+          <button
+            onClick={() => onConnect({ connector: connectors[0]! })}
+            className="text-[13px] font-medium text-[#a8a29e] underline-offset-2 hover:underline"
+          >
+            Try connecting here instead
+          </button>
+        )}
+        <p className="max-w-[260px] text-[11px] leading-relaxed text-[#a8a29e]">
+          No seed phrases. Smart Wallet keys are secured with Passkeys and stored on-device.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-12 text-center">
       <div className="grid h-14 w-14 place-items-center rounded-2xl border border-[#e3dfd7] bg-white">
