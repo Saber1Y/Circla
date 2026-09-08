@@ -4,14 +4,16 @@ pragma solidity 0.8.28;
 import {Script} from "forge-std/Script.sol";
 import {CirclaAssetRegistry} from "../src/CirclaAssetRegistry.sol";
 
-/// @notice Enable additional official Coinbase B20 stocks on the live mainnet
-/// registry so the vault can propose and execute swaps for them.
+/// @notice Enable the official Coinbase B20 stocks that have live Aerodrome
+/// Slipstream /USDC liquidity on the live mainnet registry, so the vault can
+/// propose and execute swaps for them.
 /// @dev Run as the registry owner (deployer). Uses verified Chainlink
 /// total-return feed proxies from docs.base.org (Sep 2026) and the same
 /// tickSpacing (10) and maxTradeAmount as the already-configured NVDAc.
+/// Only pool-backed assets are configured; NVDAc is already enabled.
+/// (SNDKc, TSLAc, COINc, CRCLc, INTCc have no /USDC pool yet and are skipped.)
 contract ConfigureAssets is Script {
-    CirclaAssetRegistry internal constant REGISTRY =
-        CirclaAssetRegistry(0xA433d976740203bAE030339e68d6f7b261aCEABd);
+    CirclaAssetRegistry internal constant REGISTRY = CirclaAssetRegistry(0xA433d976740203bAE030339e68d6f7b261aCEABd);
 
     // Official B20 token -> verified Coinbase Chainlink total-return feed (Base).
     address internal constant NVDAC = 0xb20000000000000000000078ee7ce2fE4908108C;
@@ -46,18 +48,14 @@ contract ConfigureAssets is Script {
         vm.startBroadcast(deployerKey);
 
         // Matches the live NVDAc config: 8 decimals (B20 standard), tick 10, max 1000 USDC.
+        // Only assets with a live Aerodrome Slipstream /USDC pool.
         configure(METAC, METAC_FEED);
         configure(AAPLC, AAPLC_FEED);
         configure(GOOGLC, GOOGLC_FEED);
         configure(AMZNC, AMZNC_FEED);
         configure(MSFTC, MSFTC_FEED);
         configure(MSTRC, MSTRC_FEED);
-        configure(SNDKC, SNDKC_FEED);
         configure(SPCXC, SPCXC_FEED);
-        configure(TSLAC, TSLAC_FEED);
-        configure(COINC, COINC_FEED);
-        configure(CRCLC, CRCLC_FEED);
-        configure(INTCC, INTCC_FEED);
 
         vm.stopBroadcast();
     }
