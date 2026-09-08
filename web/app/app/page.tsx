@@ -107,6 +107,7 @@ const parseVault = (search: string) => {
 export default function AppPage() {
   const [params, setParams] = useState<URLSearchParams | null>(null);
   const [startParam, setStartParam] = useState<string>("");
+  const [chatTitle, setChatTitle] = useState<string>("");
   const [isTma, setIsTma] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [deposit, setDeposit] = useState("25");
@@ -126,6 +127,9 @@ export default function AppPage() {
         twa.setBackgroundColor?.("#f5f3ee");
         setStartParam(twa.initDataUnsafe?.start_param ?? "");
         setIsTma(Boolean(twa.initDataUnsafe?.user?.id));
+        // When the Mini App is opened from inside a group chat, Telegram
+        // exposes the chat (id/type/title) - use the group name as the header.
+        setChatTitle(twa.initDataUnsafe?.chat?.title ?? "");
       } catch {
         /* running outside Telegram (dev) */
       }
@@ -256,7 +260,7 @@ export default function AppPage() {
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-[#f5f3ee] text-[#101114]">
       <Header
-        name={(nameRes?.result as string | undefined) ?? "CIRCLA pool"}
+        name={chatTitle || ((nameRes?.result as string | undefined) ?? "CIRCLA pool")}
         members={(membersRes?.result as string[] | undefined)?.length ?? 0}
         onRefresh={refresh}
       />
