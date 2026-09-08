@@ -13,3 +13,4 @@ node_modules/
 bot/data/
 web/tsconfig.tsbuildinfo
 .DS_Store
+.vercel
