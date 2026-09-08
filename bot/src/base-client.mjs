@@ -1,5 +1,5 @@
 import {createPublicClient, http, parseAbi} from 'viem';
-import {base, baseSepolia} from 'viem/chains';
+import {base} from 'viem/chains';
 
 const vaultAbi = parseAbi([
   'function circleName() view returns (string)',
@@ -15,8 +15,7 @@ const vaultAbi = parseAbi([
 ]);
 
 export function createBaseClient({rpcUrl = process.env.BASE_RPC_URL ?? 'https://mainnet.base.org'} = {}) {
-  const chain = rpcUrl.includes('sepolia') ? baseSepolia : base;
-  return createPublicClient({chain, transport: http(rpcUrl)});
+  return createPublicClient({chain: base, transport: http(rpcUrl)});
 }
 
 export async function readVaultSnapshot(client, vaultAddress) {
@@ -31,10 +30,13 @@ export async function readVaultSnapshot(client, vaultAddress) {
       {address: vaultAddress, abi: vaultAbi, functionName: 'adjustedAssetBalance'},
     ],
   });
+  // poolValue reverts while a Chainlink feed is stale (market closed) — that is
+  // the fail-closed design. Report it instead of failing the whole snapshot.
+  const pool = poolValue.status === 'success' ? poolValue.result : null;
   return {
     name: unwrap(name),
     members: unwrap(members),
-    poolValue: unwrap(poolValue),
+    poolValue: pool,
     totalUnits: unwrap(totalUnits),
     asset: unwrap(asset),
     adjustedBalance: unwrap(adjustedBalance),
@@ -43,24 +45,37 @@ export async function readVaultSnapshot(client, vaultAddress) {
 
 export async function readProposal(client, vaultAddress, proposalId) {
   if (!vaultAddress) throw new Error('CIRCLA_VAULT_ADDRESS is not configured');
-  const count = await client.readContract({ address: vaultAddress, abi: vaultAbi, functionName: 'proposalCount' });
-  const id = proposalId ?? count;
-  if (id < 1n || id > count) throw new Error(`Proposal #${id} does not exist (1–${count})`);
-  const [p, quorum, members] = await Promise.all([
-    client.readContract({ address: vaultAddress, abi: vaultAbi, functionName: 'proposals', args: [id] }),
-    client.readContract({ address: vaultAddress, abi: vaultAbi, functionName: 'quorum' }),
-    client.readContract({ address: vaultAddress, abi: vaultAbi, functionName: 'members' }),
-  ]);
+  let id = proposalId;
+  if (id === undefined) {
+    const count = await client.readContract({ address: vaultAddress, abi: vaultAbi, functionName: 'proposalCount' });
+    id = count;
+  }
+  id = BigInt(id);
+  if (id < 1n) throw new Error(`Proposal #${id} does not exist (1–${id})`);
+  const [_count, p, quorum, members] = await client.multicall({
+    contracts: [
+      { address: vaultAddress, abi: vaultAbi, functionName: 'proposalCount' },
+      { address: vaultAddress, abi: vaultAbi, functionName: 'proposals', args: [id] },
+      { address: vaultAddress, abi: vaultAbi, functionName: 'quorum' },
+      { address: vaultAddress, abi: vaultAbi, functionName: 'members' },
+    ],
+  });
+  const pRes = unwrap(p);
+  if (typeof pRes === 'bigint' || pRes.proposer === '0x0000000000000000000000000000000000000000') {
+    throw new Error(`Proposal #${id} does not exist (unset)`);
+  }
+  const q = unwrap(quorum);
+  const m = unwrap(members);
   const voted = [];
-  for (const m of members) {
-    const v = await client.readContract({ address: vaultAddress, abi: vaultAbi, functionName: 'hasVoted', args: [id, m] });
-    if (v) voted.push(m);
+  for (const member of m) {
+    const v = await client.readContract({ address: vaultAddress, abi: vaultAbi, functionName: 'hasVoted', args: [id, member] });
+    if (v) voted.push(member);
   }
   return {
-    id, quorum, members, voted,
-    proposer: p[0], asset: p[1], router: p[2], amountIn: p[3], minAmountOut: p[4],
-    deadline: p[5], nonce: p[6], yesVotes: p[7], noVotes: p[8],
-    executed: p[9], cancelled: p[10],
+    id, quorum: q, members: m, voted,
+    proposer: pRes[0], asset: pRes[1], router: pRes[2], amountIn: pRes[3], minAmountOut: pRes[4],
+    deadline: pRes[5], nonce: pRes[6], yesVotes: pRes[7], noVotes: pRes[8],
+    executed: pRes[9], cancelled: pRes[10],
   };
 }
 
