@@ -1,5 +1,6 @@
 import {createPublicClient, http, parseAbi} from 'viem';
 import {base} from 'viem/chains';
+import {COINBASE_STOCKS} from './base-assets.mjs';
 
 const vaultAbi = parseAbi([
   'function circleName() view returns (string)',
@@ -13,6 +14,7 @@ const vaultAbi = parseAbi([
   'function memberUnits(address) view returns (uint256)',
   'function proposals(uint256) view returns (address proposer, address asset, address router, uint256 amountIn, uint256 minAmountOut, uint256 deadline, uint256 nonce, uint256 yesVotes, uint256 noVotes, bool executed, bool cancelled)',
   'function hasVoted(uint256, address) view returns (bool)',
+  'function registry() view returns (address)',
 ]);
 
 // The demo vault was deployed at this block; scanning ContributionReceived
@@ -140,6 +142,40 @@ export async function readContributionTotals(client, vaultAddress) {
     cursor = end + 1n;
   }
   return totals;
+}
+
+// Tradable stocks = catalog entries enabled in the vault's onchain asset
+// registry. The registry is the source of truth; the local catalog only adds
+// display metadata (company name). /stocks reads this live, so assets the
+// registry owner configures onchain appear without touching the bot.
+export async function readEnabledStocks(client, vaultAddress) {
+  if (!vaultAddress) throw new Error('CIRCLA_VAULT_ADDRESS is not configured');
+  const registryAddress = await client.readContract({
+    address: vaultAddress,
+    abi: vaultAbi,
+    functionName: 'registry',
+  });
+  const registryAbi = parseAbi([
+    'function getAsset(address token) view returns (address token, address priceFeed, uint8 tokenDecimals, int24 tickSpacing, uint256 maxTradeAmount, bool enabled)',
+  ]);
+  const entries = Object.values(COINBASE_STOCKS);
+  const configs = await client.multicall({
+    contracts: entries.map((stock) => ({
+      address: registryAddress,
+      abi: registryAbi,
+      functionName: 'getAsset',
+      args: [stock.token],
+    })),
+  });
+  return entries
+    .map((stock, i) => {
+      // viem decodes multi-output calls as arrays by index — AssetConfig is
+      // (token, priceFeed, tokenDecimals, tickSpacing, maxTradeAmount, enabled).
+      const cfg = configs[i].status === 'success' ? configs[i].result : undefined;
+      const enabled = Array.isArray(cfg) ? cfg[5] : cfg?.enabled;
+      return {...stock, enabled: enabled === true};
+    })
+    .filter((stock) => stock.enabled);
 }
 
 function unwrap(result) {

@@ -17,3 +17,16 @@ export function formatContribution({ member = "you", amountUsdc = "0", txHash = 
 export function formatVoteUpdate({ proposalId = 1, yes = 0, quorum = 2, status = "awaiting votes" } = {}) {
   return `Proposal #${proposalId}: ${yes}/${quorum} yes — ${status}`;
 }
+
+export function formatStockList(stocks) {
+  if (!Array.isArray(stocks) || stocks.length === 0) {
+    return "No Coinbase Tokenized Stocks are enabled in the vault registry yet.";
+  }
+  return [
+    "Tradable Coinbase Tokenized Stocks (enabled in the vault registry):",
+    "",
+    ...stocks.map((s) => `• ${s.symbol} — ${s.name}`),
+    "",
+    "Propose a purchase: /propose buy <USDC> <SYMBOL>",
+  ].join("\n");
+}

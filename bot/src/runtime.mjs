@@ -4,10 +4,10 @@ import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createBaseClient, readVaultSnapshot, readProposal, readMemberShares, readContributionTotals } from './base-client.mjs';
+import { createBaseClient, readVaultSnapshot, readProposal, readMemberShares, readContributionTotals, readEnabledStocks } from './base-client.mjs';
 import { buildProposalPreview } from './proposal-service.mjs';
 import { parseIntent } from './intent-parser.mjs';
-import { formatSwapReceipt, formatContribution } from './receipts.mjs';
+import { formatSwapReceipt, formatContribution, formatStockList } from './receipts.mjs';
 import { createCircleStore } from './circle-store.mjs';
 import { createWatcher, pollVaultEvents, readQuorum, formatEvent } from './onchain-watcher.mjs';
 import { COINBASE_STOCKS } from './base-assets.mjs';
@@ -109,7 +109,7 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
         'Pool USDC with a trusted Telegram group, vote on a Coinbase Tokenized Stock purchase, and track the vault on Base.',
         '',
         'Tokenized stocks are available only to eligible users in permitted non-US jurisdictions.',
-        'Use /start_syndicate, /status, /portfolio, /propose, or /help.',
+        'Use /start_syndicate, /status, /stocks, /portfolio, /propose, or /help.',
       ].join('\n'),
       Markup.inlineKeyboard([
         [appButton(ctx, 'Open CIRCLA app', boundCircle(ctx))],
@@ -119,7 +119,7 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
 
   bot.help(async (ctx) => {
     await ctx.reply(
-      '/start_syndicate — bind this group to its vault + open the app\n/status — live vault snapshot\n/portfolio — holdings + adjusted balance\n/members — per-member deposits, units, and pool share\n/votes [id] — vote count for a proposal\n/propose buy <USDC> <NVDAc|AAPLc> — proposal preview\n/contribute <USDC> — deposit via the Mini App\n/vote <yes|no> — record your vote in chat (sign onchain in the app)\n/withdraw — policy-aware exit',
+      '/start_syndicate — bind this group to its vault + open the app\n/status — live vault snapshot\n/stocks — registry-enabled stocks you can buy\n/portfolio — holdings + adjusted balance\n/members — per-member deposits, units, and pool share\n/votes [id] — vote count for a proposal\n/propose buy <USDC> <SYMBOL> — proposal preview (list tradable symbols with /stocks)\n/contribute <USDC> — deposit via the Mini App\n/vote <yes|no> — record your vote in chat (sign onchain in the app)\n/withdraw — policy-aware exit',
     );
   });
 
@@ -214,6 +214,21 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
       await ctx.reply(lines.join('\n'));
     } catch (error) {
       await ctx.reply(`Votes unavailable: ${error.shortMessage ?? error.message}`);
+    }
+  });
+
+  bot.command('stocks', async (ctx) => {
+    const circle = boundCircle(ctx);
+    try {
+      // Reads the vault's onchain registry live — only tradable (enabled,
+      // pool-backed) stocks appear, in sync with the registry owner's config.
+      const stocks = await readEnabledStocks(client, circle.vault);
+      await ctx.reply(
+        formatStockList(stocks),
+        Markup.inlineKeyboard([appButton(ctx, 'Open CIRCLA app', circle)]),
+      );
+    } catch (error) {
+      await ctx.reply(`Stock list unavailable: ${error.shortMessage ?? error.message}`);
     }
   });
 
