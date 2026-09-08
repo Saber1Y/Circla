@@ -25,10 +25,10 @@ const SecurityDiagram = dynamic(() => import("@/components/SecurityDiagram"), {
 });
 
 const VAULT = process.env.NEXT_PUBLIC_CIRCLA_VAULT_ADDRESS || "";
-const TG_URL = process.env.NEXT_PUBLIC_TELEGRAM_URL || "https://t.me/CirclaBot";
+const TG_URL = process.env.NEXT_PUBLIC_TELEGRAM_URL || "https://t.me/circlabasebot";
 const TG_APP_URL = process.env.NEXT_PUBLIC_TELEGRAM_APP_URL || TG_URL;
 const LOOM_URL = process.env.NEXT_PUBLIC_LOOM_URL || "";
-const EXPLORER = "https://sepolia.basescan.org";
+const EXPLORER = "https://basescan.org";
 const vaultLink = VAULT ? `${EXPLORER}/address/${VAULT}` : "#";
 const isLive = Boolean(VAULT && VAULT.startsWith("0x"));
 
@@ -140,7 +140,7 @@ export default function Landing() {
       <header className="flex items-center justify-between gap-4">
         <a href="/" className="flex items-center gap-2">
           <img src="/circla-logo.svg" alt="CIRCLA logo" className="h-7 w-7" />
-          <span className="font-[var(--font-newsreader)] text-[17px] font-medium tracking-tight text-[#101114]">
+          <span className="font-[var(--font-sora)] text-[17px] font-semibold tracking-tight text-[#101114]">
             CIRCLA
             <span className="ml-1 font-[var(--font-sora)] text-[11px] font-bold tracking-widest text-[#0052FF]">
               /BASE
@@ -159,6 +159,12 @@ export default function Landing() {
             className="text-xs font-semibold text-[#77736c] hover:text-[#101114]"
           >
             How it works
+          </a>
+          <a
+            href="#proof"
+            className="text-xs font-semibold text-[#77736c] hover:text-[#101114]"
+          >
+            Proof
           </a>
           <a
             href="#guardrails"
@@ -196,19 +202,11 @@ export default function Landing() {
       {/* 1. Hero — split screen: content left, live product visual right */}
       <section className="grid items-center gap-10 py-12 md:grid-cols-[1.02fr_0.98fr] md:py-16">
         <div className="max-md:text-center">
-          <motion.div
-            {...anim(0.1)}
-            className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 py-1.5 pl-2 pr-4 text-xs font-semibold uppercase tracking-wide text-[#0052FF]"
-          >
-            <img src="/base-logo.svg" alt="Base" className="h-4 w-auto" />
-            Built on Base • Powered by B20 Stocks
-          </motion.div>
           <motion.h1
             {...anim(0.2)}
-            className="mt-6 font-[var(--font-newsreader)] text-[44px] font-medium leading-[46px] tracking-tight text-[#101114] md:text-[60px] md:leading-[62px]"
+            className="mt-6 font-[var(--font-sora)] text-[40px] font-semibold leading-[46px] tracking-[-0.015em] text-[#101114] md:text-[56px] md:leading-[60px]"
           >
-            Chat-Native <span className="text-[#0052FF]">Equity</span>{" "}
-            Syndicates.
+            Chat-Native Equity Syndicates.
           </motion.h1>
           <motion.p
             {...anim(0.3)}
@@ -309,7 +307,7 @@ export default function Landing() {
               Swap executed! 1.14 NVDAc @ $250
             </p>
             <p className="mt-1 font-mono text-[10px] text-[#77736c]">
-              sepolia proof ·{" "}
+              mainnet proof ·{" "}
               <a
                 href={vaultLink}
                 target="_blank"
@@ -336,12 +334,12 @@ export default function Landing() {
                 $20.80
               </p>
               <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-[#918d85]">
-                Pool value · Sepolia proof
+                Pool value · Mainnet proof
               </p>
             </div>
             <div>
               <p className="font-mono text-lg font-bold text-[#101114]">
-                800k tNVDAc
+                0.80 NVDAc
               </p>
               <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-[#918d85]">
                 Governed buy · Aerodrome
@@ -387,6 +385,95 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Onchain proof — verified live transactions */}
+      <section
+        id="proof"
+        aria-label="Onchain proof"
+        className="mx-auto mt-6 max-w-[800px]"
+      >
+        <motion.div
+          {...inView(0)}
+          className="overflow-hidden rounded-[24px] border border-[#e3dfd7] bg-white"
+        >
+          <div className="flex items-center justify-between gap-4 border-b border-[#f0ede8] px-6 py-4">
+            <div>
+              <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#0052FF]">
+                ONCHAIN PROOF
+              </p>
+              <h3 className="mt-1 font-[var(--font-sora)] text-[15px] font-semibold tracking-tight text-[#101114]">
+                A real governed NVDAc buy on Base Mainnet.
+              </h3>
+              <p className="mt-1 max-w-[560px] font-[var(--font-sora)] text-[11px] leading-relaxed text-[#77736c]">
+                Sep 7, 2026 · 1 USDC in → fractional NVDAc held by the vault.
+                Every step verified on Basescan.
+              </p>
+            </div>
+            <a
+              href={vaultLink}
+              target="_blank"
+              rel="noreferrer"
+              className="hidden shrink-0 rounded-full bg-[#EFF6FF] px-3.5 py-1.5 text-[11px] font-bold text-[#0052FF] hover:opacity-80 md:inline-block"
+            >
+              Vault ↗
+            </a>
+          </div>
+          <div className="divide-y divide-[#f0ede8]">
+            {[
+              {
+                step: "Deposit",
+                detail: "1 USDC pooled",
+                hash: "0xeaa0524114da48bf1ed6251e87e3e83d57cec10672dfaa8cddb891d7748a9a9b",
+              },
+              {
+                step: "Proposal #1",
+                detail: "Buy NVDAc · vs Aerodrome",
+                hash: "0x9f3213e16bf89eec0e2c703bd2177a151aa0bff79735de5a154de4fd80ec2fcc",
+              },
+              {
+                step: "Vote 2/2",
+                detail: "A + B approve · quorum met",
+                hash: "0x2bde7aad5afcd8ce93ef2484b0e9cc066f0e93b4e2668095a34ed55798439dc4",
+              },
+              {
+                step: "Swap executed",
+                detail: "430,908 NVDAc held by vault",
+                hash: "0x5ad3de769ca4a719da490fd766551bc3c98c607b51e00ce5442a241015648131",
+              },
+            ].map((row) => (
+              <div
+                key={row.step}
+                className="flex items-center gap-4 px-6 py-3"
+              >
+                <span className="w-[104px] shrink-0 font-[var(--font-sora)] text-xs font-semibold text-[#101114]">
+                  {row.step}
+                </span>
+                <span className="flex-1 truncate font-[var(--font-sora)] text-[11px] text-[#77736c]">
+                  {row.detail}
+                </span>
+                <a
+                  href={`https://basescan.org/tx/${row.hash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 font-mono text-[10px] text-[#0052FF] underline-offset-2 hover:underline"
+                >
+                  {row.hash.slice(0, 10)}…{row.hash.slice(-6)} ↗
+                </a>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-[#f0ede8] bg-[#fcfaf8] px-6 py-3">
+            <p className="font-mono text-[10px] leading-relaxed text-[#918d85]">
+              CirclaVault{" "}
+              <span className="text-[#0052FF]">
+                {VAULT.slice(0, 10)}…{VAULT.slice(-6)}
+              </span>{" "}
+              · NVDAc{" "}
+              0xb20000000000000000000078ee7ce2fE4908108C · Basescan-verified
+            </p>
+          </div>
+        </motion.div>
+      </section>
+
       {/* Loom demo — judge portal */}
       <section id="demo" className="mx-auto max-w-[800px] pb-4">
         <div className="overflow-hidden rounded-[24px] border border-[#e3dfd7] bg-white">
@@ -395,7 +482,7 @@ export default function Landing() {
               <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#0052FF]">
                 DEMO
               </p>
-              <h3 className="mt-1 font-[var(--font-newsreader)] text-[15px] font-medium tracking-tight text-[#101114]">
+              <h3 className="mt-1 font-[var(--font-sora)] text-[15px] font-semibold tracking-tight text-[#101114]">
                 Watch the syndicate loop end to end
               </h3>
             </div>
@@ -452,7 +539,7 @@ export default function Landing() {
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#0052FF]">
             <Users className="h-[18px] w-[18px]" />
           </div>
-          <h3 className="mt-4 font-[var(--font-newsreader)] text-[15px] font-semibold text-[#101114]">
+          <h3 className="mt-4 font-[var(--font-sora)] text-[15px] font-semibold text-[#101114]">
             Group Treasury
           </h3>
           <p className="mt-2 font-[var(--font-sora)] text-[13px] leading-relaxed text-[#77736c]">
@@ -467,7 +554,7 @@ export default function Landing() {
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#0052FF]">
             <LineChart className="h-[18px] w-[18px]" />
           </div>
-          <h3 className="mt-4 font-[var(--font-newsreader)] text-[15px] font-semibold text-[#101114]">
+          <h3 className="mt-4 font-[var(--font-sora)] text-[15px] font-semibold text-[#101114]">
             Real US Equities
           </h3>
           <p className="mt-2 font-[var(--font-sora)] text-[13px] leading-relaxed text-[#77736c]">
@@ -481,7 +568,7 @@ export default function Landing() {
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#0052FF]">
             <Smartphone className="h-[18px] w-[18px]" />
           </div>
-          <h3 className="mt-4 font-[var(--font-newsreader)] text-[15px] font-semibold text-[#101114]">
+          <h3 className="mt-4 font-[var(--font-sora)] text-[15px] font-semibold text-[#101114]">
             Telegram Native
           </h3>
           <p className="mt-2 font-[var(--font-sora)] text-[13px] leading-relaxed text-[#77736c]">
@@ -502,12 +589,12 @@ export default function Landing() {
             <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#0052FF]">
               LIVE GROUP CHAT
             </p>
-            <h3 className="mt-1 font-[var(--font-newsreader)] text-[15px] font-medium tracking-tight text-[#101114]">
+            <h3 className="mt-1 font-[var(--font-sora)] text-[15px] font-semibold tracking-tight text-[#101114]">
               Watch a syndicate run end to end.
             </h3>
             <p className="mt-1 max-w-[560px] font-[var(--font-sora)] text-[11px] leading-relaxed text-[#77736c]">
-              Real commands, real receipts — an illustrated run mirroring the
-              Sepolia proof. On mainnet every bot message links Basescan.
+              Real commands, real receipts — an illustrated run on Base
+              Mainnet. Every bot message links Basescan.
             </p>
           </div>
           <span className="hidden items-center gap-2 rounded-full bg-[#f5f3ee] px-3 py-1.5 text-[11px] font-bold text-[#77736c] md:inline-flex">
@@ -543,7 +630,7 @@ export default function Landing() {
             <YouMsg time="10:44">Buy 80 USDC of NVDAc</YouMsg>
             <BotMsg time="10:44">
               <span className="font-bold">Proposal #1</span> — 80 USDC → ~0.80
-              tNVDAc via Aerodrome
+              NVDAc via Aerodrome
               <br />
               Min 0.792 · expires 30m · needs 2 approvals
               <br />
@@ -565,11 +652,11 @@ export default function Landing() {
             <BotMsg time="10:45">Quorum met 2/2 — executing…</BotMsg>
             <BotMsg time="10:46" highlight>
               <span className="font-bold">
-                Swap executed! 0.80 tNVDAc @ $80
+                Swap executed! 0.80 NVDAc @ $80
               </span>
               <br />
               <span className="font-mono text-[11px] text-[#77736c]">
-                sepolia proof ·{" "}
+                mainnet proof ·{" "}
                 <a
                   href={vaultLink}
                   target="_blank"
@@ -616,7 +703,7 @@ export default function Landing() {
         </div>
         <div className="flex flex-wrap items-center gap-2 border-t border-[#f0ede8] bg-[#fcfaf8] px-4 py-3 md:px-6">
           <span className="text-[11px] font-semibold text-[#918d85]">
-            Illustrated run · mirrors the Sepolia proof
+            Illustrated run · Mainnet
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e3dfd7] bg-white px-3.5 py-2 text-xs font-medium text-[#5e5b57]">
             <span className="h-2 w-2 rounded-full bg-[#0052FF]" />
@@ -643,17 +730,7 @@ export default function Landing() {
         aria-label="Get started"
         className="mx-auto max-w-[640px] py-12 text-center"
       >
-        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 py-1.5 pl-2 pr-4">
-          <img
-            src="/base-logo.svg"
-            alt="Built on Base"
-            className="h-4 w-auto"
-          />
-          <span className="text-[11px] font-bold uppercase tracking-widest text-[#0052FF]">
-            Built on Base
-          </span>
-        </div>
-        <h2 className="font-[var(--font-newsreader)] text-[44px] font-medium leading-[48px] tracking-tight text-[#101114]">
+       i <h2 className="font-[var(--font-sora)] text-[40px] font-semibold leading-[48px] tracking-[-0.015em] text-[#101114]">
           Start your syndicate today.
         </h2>
         <p className="mx-auto mt-3 max-w-[520px] font-[var(--font-sora)] text-[16px] leading-6 text-[#77736c]">

@@ -1,12 +1,6 @@
 import type { Metadata } from "next";
-import { Newsreader, Sora, Inter } from "next/font/google";
+import { Sora, Inter } from "next/font/google";
 import "./globals.css";
-
-const newsreader = Newsreader({
-  subsets: ["latin"],
-  variable: "--font-newsreader",
-  display: "swap",
-});
 
 const sora = Sora({
   subsets: ["latin"],
@@ -28,7 +22,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${newsreader.variable} ${sora.variable} ${inter.variable}`}>
+    <html lang="en" className={`${sora.variable} ${inter.variable}`}>
       <body className="bg-[#f5f3ee] font-sans text-[#101114] antialiased">{children}</body>
     </html>
   );
