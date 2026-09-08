@@ -100,6 +100,7 @@ const parseVault = (search: string) => {
 
 export default function AppPage() {
   const [params, setParams] = useState<URLSearchParams | null>(null);
+  const [startParam, setStartParam] = useState<string>("");
   const [expanded, setExpanded] = useState(false);
   const [deposit, setDeposit] = useState("25");
   const [propose, setPropose] = useState("10");
@@ -116,6 +117,7 @@ export default function AppPage() {
         twa.expand();
         twa.setHeaderColor?.("#f5f3ee");
         twa.setBackgroundColor?.("#f5f3ee");
+        setStartParam(twa.initDataUnsafe?.start_param ?? "");
       } catch {
         /* running outside Telegram (dev) */
       }
@@ -130,11 +132,16 @@ export default function AppPage() {
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
 
-  // No default vault. ?vault=0x… comes from the bot per group chat.
+  // No default vault. ?vault=0x… comes from the bot per group chat; when opened
+  // through the t.me Direct Link (https://t.me/circlabasebot/circlabasebot) the
+  // bot passes the vault via ?startapp=<address>, which Telegram exposes as
+  // start_param in the init data. startapp only allows [A-Za-z0-9_-], so the
+  // raw address is used (no "vault=" prefix).
   const rawVault = params?.get("vault")?.trim() ?? "";
+  const candidate = rawVault || startParam;
   const vault: `0x${string}` | undefined =
-    rawVault && VAULT_RE.test(rawVault) && isAddress(rawVault)
-      ? (rawVault as `0x${string}`)
+    candidate && VAULT_RE.test(candidate) && isAddress(candidate)
+      ? (candidate as `0x${string}`)
       : undefined;
   const hasVault = Boolean(vault);
   // placeholder never called because every query is vault-gated
