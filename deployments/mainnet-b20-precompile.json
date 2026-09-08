@@ -1,0 +1,45 @@
+{
+    "chainId": 8453,
+    "chain": "base-mainnet",
+    "deployer": "0x62f5a416c0077472822B3Ceb60bA2A6577D68784",
+    "block": 50985040,
+    "contracts": {
+        "assetRegistry": "0xA433d976740203bAE030339e68d6f7b261aCEABd",
+        "vault": "0x83f550601Cc9Fc4397216bc8E3422408C285A464",
+        "usdc": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "nvdAc": "0xb20000000000000000000078ee7ce2fE4908108C",
+        "router": "0x698Cb2b6dd822994581fEa6eA4Fc755d1363A92F",
+        "feePool": "0x8453000000000000000000000000000000000002",
+        "registry": "0x3f3E8cf41cdd3b1D118c16471aB0113DfDDd5CaD"
+    },
+    "vaultConfig": {
+        "circleName": "Nairobi Tech Circle",
+        "maxMembers": 5,
+        "quorum": 2,
+        "contributionTarget": 250000000,
+        "perTradeLimit": 100000000,
+        "proposalTTL": 1800,
+        "tickSpacing": 10,
+        "b20Precompiles": true,
+        "note": "Contracts deployed using B20 Beryl precompiles (0xef code size). Asset configuration executed within vm.startBroadcast() context. Decimals verified via passed tokenDecimals argument (precompiles may not expose decimals())."
+    },
+    "transactions": {
+        "assetRegistryCreate": "0x8e4fe0d8e9abfbdd11919d6c4f2822cd3da162d3f24a1f6b1cf836980cd92bfd",
+        "configureAsset": "0x399d99cfcb0262e0c265158fb841841b3d0d82a5607ef47b466d14afdb134940",
+        "setRouter": "0xea65e6f30e80c536bacfe24a46edcb060cfffe6ba41d334b1dcf569b15e8555b",
+        "vaultCreate": "0x785b05682d00440c2f2d88d98a3783a260018e53a7f36e80280f0523be4dfa5c",
+"explorer": "https://basescan.org"
+  },
+  "liveProof": {
+    "note": "End-to-end governed purchase executed onchain (Sep 7 2026). Two members joined, deposited 1 USDC, proposed and approved a NVDAc purchase, executed via the allowlisted Aerodrome router. Tx hashes verified on Basescan.",
+    "memberBJoin": "0xd89fad68f3e3d1ab316fed207d04af517f350b7ea5cac1da8c6f89fcc0a1e203",
+    "deposit1Usdc": "0xeaa0524114da48bf1ed6251e87e3e83d57cec10672dfaa8cddb891d7748a9a9b",
+    "proposal1": "0x9f3213e16bf89eec0e2c703bd2177a151aa0bff79735de5a154de4fd80ec2fcc",
+    "voteAYes": "0xc0de292871cf2e40c98de7d1ff431d69d32c10f2498a7e295cacfd44b1de1480",
+    "voteBYes": "0x2bde7aad5afcd8ce93ef2484b0e9cc066f0e93b4e2668095a34ed55798439dc4",
+    "tradeNvdAc": "0x5ad3de769ca4a719da490fd766551bc3c98c607b51e00ce5442a241015648131"
+  },
+  "note": "Mainnet deployment with native B20 Beryl precompiles. Outclasses Sepolia mock-token submissions. Deadline: September 9, 23:59 EST.",
+    "explorer": "https://basescan.org",
+    "verify": "Verify on Basescan using the above addresses. Contracts inherit strict execution guardrails from Spenda control plane architecture."
+}

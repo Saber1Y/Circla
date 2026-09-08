@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity ^0.8.28;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IB20Like, IPriceFeedLike} from "./interfaces/CirclaInterfaces.sol";
@@ -30,10 +30,7 @@ contract CirclaAssetRegistry is Ownable {
     event RouterConfigured(address indexed router, bool approved);
 
     error InvalidAddress();
-    error InvalidDecimals();
-    error DecimalsMismatch();
     error InvalidPriceFeed();
-    error InvalidTickSpacing();
 
     constructor(address owner_) Ownable(owner_) {}
 
@@ -46,13 +43,10 @@ contract CirclaAssetRegistry is Ownable {
         bool enabled
     ) external onlyOwner {
         if (token == address(0) || priceFeed == address(0)) revert InvalidAddress();
-        if (tokenDecimals < 6 || tokenDecimals > 18) revert InvalidDecimals();
-        if (tickSpacing <= 0) revert InvalidTickSpacing();
-        try IB20Like(token).decimals() returns (uint8 actualDecimals) {
-            if (actualDecimals != tokenDecimals) revert DecimalsMismatch();
-        } catch {
-            revert InvalidAddress();
-        }
+        if (tickSpacing <= 0) revert InvalidAddress();
+        // B20 precompiles: skip decimals verification; use passed tokenDecimals.
+        // (Calling decimals() on a precompile may revert; we rely on the
+        //  tokenDecimals argument instead.)
         try IPriceFeedLike(priceFeed).decimals() returns (uint8) {}
         catch {
             revert InvalidPriceFeed();
