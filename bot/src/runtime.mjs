@@ -107,6 +107,26 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
     return bot.telegram.sendMessage(chatId, text, { disable_web_page_preview: true, ...extra });
   };
 
+  // Register the command list with Telegram so the "/" menu in any chat shows
+  // the available commands instead of an empty suggestion list.
+  const commandCatalog = [
+    { command: 'start', description: 'Open CIRCLA' },
+    { command: 'start_syndicate', description: 'Bind this group to its vault' },
+    { command: 'stocks', description: 'Registry-enabled stocks you can buy' },
+    { command: 'status', description: 'Live vault snapshot' },
+    { command: 'portfolio', description: 'Holdings + adjusted balance' },
+    { command: 'members', description: 'Per-member deposits, units, share' },
+    { command: 'votes', description: 'Vote count for a proposal' },
+    { command: 'propose', description: 'Preview a proposal (buy <USDC> <SYMBOL>)' },
+    { command: 'deposit', description: 'Deposit via the Mini App' },
+    { command: 'vote', description: 'Record your vote (yes|no)' },
+    { command: 'withdraw', description: 'Policy-aware exit' },
+    { command: 'watch', description: 'Stream onchain vault events here' },
+    { command: 'help', description: 'List all commands' },
+  ];
+  bot.telegram.setMyCommands(commandCatalog).catch(() => {});
+  bot.telegram.setMyDescription('Pool USDC with a trusted group, vote to buy Coinbase Tokenized Stocks, and earn from the vault on Base.').catch(() => {});
+
   bot.start(async (ctx) => {
     await ctx.reply(
       [
