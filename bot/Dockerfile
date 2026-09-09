@@ -9,7 +9,7 @@ COPY src ./src
 COPY entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
-COPY data/circles.json ./seed/circles.json
+COPY seed/circles.json ./seed/circles.json
 RUN mkdir -p /app/data
 
 ENV NODE_ENV=production
