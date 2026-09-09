@@ -38,3 +38,32 @@ export const usdcAbi = parseAbi([
 export const registryAbi = parseAbi([
   "function getAsset(address token) view returns (address token, address priceFeed, uint8 tokenDecimals, int24 tickSpacing, uint256 maxTradeAmount, bool enabled)",
 ]);
+
+export type StockMeta = { symbol: string; name: string; token: string };
+export type AssetConfigTuple = [string, string, number, number, bigint, boolean];
+
+// Official Coinbase Tokenized Stock catalog on Base, verified against
+// https://www.base.org/stocks (Sep 2026) — mirrors bot/src/base-assets.mjs.
+// This list is display metadata only: which stocks are actually proposable is
+// decided onchain by the vault registry (enabled = true), read live per load.
+export const STOCKS: StockMeta[] = [
+  { symbol: "NVDAc", name: "NVIDIA", token: "0xb20000000000000000000078ee7ce2fE4908108C" },
+  { symbol: "METAc", name: "Meta", token: "0xb2000000000000000000008bC8786B856E61707C" },
+  { symbol: "AAPLc", name: "Apple", token: "0xb200000000000000000000C2e324d24d7eEcd1fb" },
+  { symbol: "GOOGLc", name: "Alphabet (Google)", token: "0xb2000000000000000000002D0BA3164cc74f58B7" },
+  { symbol: "AMZNc", name: "Amazon", token: "0xb200000000000000000000d9192b6B456483C2E8" },
+  { symbol: "MSFTc", name: "Microsoft", token: "0xB200000000000000000000Ab99cFa739E253872B" },
+  { symbol: "MSTRc", name: "MicroStrategy (Strategy)", token: "0xb2000000000000000000004884b426556b92883d" },
+  { symbol: "SNDKc", name: "SanDisk", token: "0xb200000000000000000000397293Cb8cda9a10c5" },
+  { symbol: "SPCXc", name: "SpaceX", token: "0xb2000000000000000000007b9fcbd005511aCBd5" },
+  { symbol: "TSLAc", name: "Tesla", token: "0xb2000000000000000000001e800a7f5189430cD0" },
+  { symbol: "COINc", name: "Coinbase", token: "0xb200000000000000000000c85a31389D71F3ecfb" },
+  { symbol: "CRCLc", name: "Circle", token: "0xB20000000000000000000019f6E7C675b73C2e4D" },
+  { symbol: "INTCc", name: "Intel", token: "0xB2000000000000000000004AFF16039bA04bdFBc" },
+];
+
+export function stockByToken(address?: string): StockMeta | undefined {
+  if (!address) return undefined;
+  const lower = address.toLowerCase();
+  return STOCKS.find((s) => s.token.toLowerCase() === lower);
+}

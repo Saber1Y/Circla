@@ -35,9 +35,13 @@ import {
   REGISTRY,
   ROUTER,
   USDC,
+  STOCKS,
   registryAbi,
+  stockByToken,
   usdcAbi,
   vaultAbi,
+  type AssetConfigTuple,
+  type StockMeta,
 } from "./constants";
 import type { Abi } from "viem";
 import { circleTitleFor } from "./circles";
@@ -229,11 +233,31 @@ export default function AppPage() {
     query: { enabled: Boolean(address && hasVault) },
   });
 
+  // Registry-driven stock catalog: check every official Coinbase B20 token
+  // against the live allowlist. Only registry-enabled (pool-backed) stocks
+  // become proposable — the picker renders from this, so assets the registry
+  // owner enables onchain appear here without a redeploy.
+  const stockConfigs = useReadContracts({
+    contracts: STOCKS.map((s) => ({
+      address: REGISTRY as `0x${string}`,
+      abi: registryAbi as Abi,
+      functionName: "getAsset",
+      args: [s.token as `0x${string}`],
+    })),
+  });
+  const enabledStocks = STOCKS.map((meta, i) => ({
+    meta,
+    cfg: stockConfigs.data?.[i]?.result as AssetConfigTuple | undefined,
+  })).filter((s): s is { meta: StockMeta; cfg: AssetConfigTuple } => s.cfg?.[5] === true);
+
   const proposal: Proposal | undefined = toProposal(latestProposal.data);
   const poolValue = poolValueRes?.result as bigint | undefined;
-  const assetConfig = assetRes?.result as
-    | [string, string, number, number, bigint, boolean]
-    | undefined;
+  const assetConfig = assetRes?.result as AssetConfigTuple | undefined;
+  const portfolio = (portfolioRes?.result as string | undefined) ?? "";
+  // The vault locks onto ONE portfolio asset after its first purchase, so
+  // withdrawals and display should describe that asset, not a hardcoded one.
+  const portfolioCfg =
+    enabledStocks.find((s) => s.meta.token.toLowerCase() === portfolio.toLowerCase())?.cfg ?? assetConfig;
 
   const refresh = () => {
     snapshot.refetch();
@@ -314,13 +338,13 @@ export default function AppPage() {
               poolValue={poolValue}
               totalUnits={(totalUnitsRes?.result as bigint | undefined) ?? 0n}
               quorum={(quorumRes?.result as number | undefined) ?? 0}
-              portfolio={(portfolioRes?.result as string | undefined) ?? ""}
-              assetConfig={assetConfig}
+              portfolio={portfolio}
+              assetConfig={portfolioCfg}
               myUnits={isMember ? (myUnits.data as bigint | undefined) : undefined}
               usdcBalance={usdcBalance.data as bigint | undefined}
               isMember={isMember}
               proposal={proposal}
-              maxTradeAmountUsdc={(assetConfig?.[4] ?? 100n)}
+              maxTradeAmountUsdc={(portfolioCfg?.[4] ?? assetConfig?.[4] ?? 100n)}
               members={memberList}
               memberUnitsList={(memberShares.data ?? []).map((r) => (r.result as bigint | undefined) ?? 0n)}
               address={address}
@@ -334,7 +358,9 @@ export default function AppPage() {
               proposal={proposal}
               usdcBalance={usdcBalance.data as bigint | undefined}
               usdcAllowance={usdcAllowance.data as bigint | undefined}
-              asset={assetConfig}
+              asset={portfolioCfg}
+              stocks={enabledStocks}
+              lockedToken={portfolio || undefined}
               deposit={deposit}
               propose={propose}
               slippage={slippage}
@@ -702,6 +728,7 @@ function VaultView({
     poolValue === undefined
       ? "awaiting price feed"
       : `$ ${formatUnits(poolValue, 6)}`;
+  const holding = stockByToken(portfolio);
   return (
     <div className="mx-4 mt-3 space-y-3 pb-4">
       <div className="rounded-3xl bg-[#101114] p-5 text-white">
@@ -738,7 +765,8 @@ function VaultView({
             </a>
           </div>
           <p className="mt-1 text-[12px] text-[#57534e]">
-            NVDAc tokenized NVIDIA · max trade ${Number(maxTradeAmountUsdc)} · tick {assetConfig?.[3] ?? 60}
+            {holding ? `${holding.symbol} tokenized ${holding.name}` : "tokenized stock"} · max trade $
+            {Number(maxTradeAmountUsdc)} · tick {assetConfig?.[3] ?? 60}
           </p>
         </div>
       )}
@@ -811,6 +839,8 @@ function ActionsView({
   usdcBalance,
   usdcAllowance,
   asset,
+  stocks,
+  lockedToken,
   deposit,
   propose,
   slippage,
@@ -826,7 +856,9 @@ function ActionsView({
   proposal?: Proposal;
   usdcBalance?: bigint;
   usdcAllowance?: bigint;
-  asset?: [string, string, number, number, bigint, boolean];
+  asset?: AssetConfigTuple;
+  stocks: { meta: StockMeta; cfg: AssetConfigTuple }[];
+  lockedToken?: string;
   deposit: string;
   propose: string;
   slippage: string;
@@ -854,7 +886,8 @@ function ActionsView({
             setPropose={setPropose}
             slippage={slippage}
             setSlippage={setSlippage}
-            asset={asset}
+            stocks={stocks}
+            lockedToken={lockedToken}
             vault={vault}
             onSuccess={onSuccess}
           />
@@ -1028,7 +1061,8 @@ function ProposeCard({
   setPropose,
   slippage,
   setSlippage,
-  asset,
+  stocks,
+  lockedToken,
   vault,
   onSuccess,
 }: {
@@ -1036,13 +1070,25 @@ function ProposeCard({
   setPropose: (v: string) => void;
   slippage: string;
   setSlippage: (v: string) => void;
-  asset?: [string, string, number, number, bigint, boolean];
+  stocks: { meta: StockMeta; cfg: AssetConfigTuple }[];
+  lockedToken?: string;
   vault?: `0x${string}`;
   onSuccess: () => void;
 }) {
   const { writeContractAsync, isPending, error } = useWriteContract();
   const [txHash, setTxHash] = useState<string | null>(null);
   const tx = useWaitForTransactionReceipt({ hash: txHash as `0x${string}` | undefined });
+
+  // Registry-driven stock selection. A vault locks onto its first purchased
+  // asset (portfolioAsset) — once locked, proposals must target the same
+  // stock, mirroring the onchain InvalidProposal guard.
+  const [picked, setPicked] = useState<string | null>(null);
+  const lockedStock = stocks.find(
+    (s) => s.meta.token.toLowerCase() === (lockedToken ?? "").toLowerCase(),
+  );
+  const selectable = lockedStock ? [lockedStock] : stocks;
+  const selected = selectable.find((s) => s.meta.symbol === picked) ?? selectable[0];
+  const asset = selected?.cfg;
 
   const feed = asset?.[1] as `0x${string}` | undefined;
   const feedDecimals = useReadContract({
@@ -1062,7 +1108,9 @@ function ProposeCard({
   });
 
   const amount = Number(propose);
-  const valid = amount > 0 && Number.isFinite(amount) && amount <= 100;
+  const maxTradeUsdc = asset ? Number(asset[4]) / 1e6 : 0;
+  const valid =
+    amount > 0 && Number.isFinite(amount) && maxTradeUsdc > 0 && amount <= maxTradeUsdc;
   const slippagePct = Math.min(99, Math.max(0.1, Number(slippage) || 1)) / 100;
 
   const quoteUsd = quote.data
@@ -1074,10 +1122,11 @@ function ProposeCard({
   const run = async () => {
     try {
       if (!vault) throw new Error("No circle selected.");
+      if (!selected) throw new Error("No registry-enabled stock available yet.");
       const amountIn = parseUnits(propose, 6);
       let minAmountOut = amountIn;
       if (quoteUsd && quoteUsd > 0n) {
-        // rawNVDAc = amountInRaw * 10^(tokenDp+feedDp) / (answer * 1e6) — inverse of _assetValue.
+        // rawB20 = amountInRaw * 10^(tokenDp+feedDp) / (answer * 1e6) — inverse of _assetValue.
         minAmountOut =
           (amountIn *
             BigInt(10 ** (tokenDp + feedDp))) /
@@ -1088,7 +1137,7 @@ function ProposeCard({
         address: vault,
         abi: vaultAbi as Abi,
         functionName: "createProposal",
-        args: [NVDAc as `0x${string}`, ROUTER as `0x${string}`, amountIn, minAmountOut],
+        args: [selected.meta.token as `0x${string}`, ROUTER as `0x${string}`, amountIn, minAmountOut],
       });
       setTxHash(h);
       onSuccess();
@@ -1101,6 +1150,28 @@ function ProposeCard({
 
   return (
     <Card title="Propose a buy" icon={<Vote size={15} />}>
+      {selectable.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {selectable.map((s) => (
+            <button
+              key={s.meta.token}
+              onClick={() => setPicked(s.meta.symbol)}
+              className={`rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors ${
+                selected?.meta.symbol === s.meta.symbol
+                  ? "bg-[#101114] text-white"
+                  : "bg-[#f5f3ee] text-[#57534e] hover:bg-[#ebe7df]"
+              }`}
+            >
+              {s.meta.symbol}
+            </button>
+          ))}
+        </div>
+      )}
+      {lockedStock && (
+        <p className="mb-2 text-[11px] text-[#57534e]">
+          This circle already holds {lockedStock.meta.symbol} — proposals must target the same asset.
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-2">
         <div>
           <p className="mb-1 text-[11px] text-[#57534e]">Amount (USDC)</p>
@@ -1112,11 +1183,11 @@ function ProposeCard({
         </div>
       </div>
       <p className="mt-2 flex items-center gap-1.5 text-[12px] text-[#57534e]">
-        <ShieldCheck size={13} className="text-[#16a34a]" /> NVDAc · allowlisted Aerodrome router · tick{" "}
-        {asset?.[3] ?? 60}
+        <ShieldCheck size={13} className="text-[#16a34a]" /> {selected?.meta.symbol ?? "no stock"} · allowlisted
+        Aerodrome router · tick {asset?.[3] ?? 60}
         {quoteUsd && quoteUsd > 0n ? (
           <span className="ml-auto font-semibold text-[#101114]">
-            ≈ {(amount / Number(quoteUsd)) * 10 ** (feedDp - tokenDp)} NVDAc
+            ≈ {(amount / Number(quoteUsd)) * 10 ** (feedDp - tokenDp)} {selected?.meta.symbol ?? ""}
           </span>
         ) : (
           <span className="ml-auto">quoting…</span>
@@ -1124,7 +1195,7 @@ function ProposeCard({
       </p>
       <button
         onClick={run}
-        disabled={!valid || isPending || tx.isLoading}
+        disabled={!selected || !valid || isPending || tx.isLoading}
         className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#101114] py-3 text-[14px] font-semibold text-white disabled:opacity-50"
       >
         {isPending || tx.isLoading ? <Loader2 size={15} className="animate-spin" /> : <Vote size={15} />}
@@ -1153,6 +1224,8 @@ function ProposalCard({
   const { writeContractAsync, isPending, error } = useWriteContract();
   const [step, setStep] = useState<string | null>(null);
   const q = quorum || Number(proposal.yesVotes) || 0;
+  const holdingSymbol =
+    stockByToken(proposal.asset)?.symbol ?? `${proposal.asset.slice(0, 6)}…`;
 
   const status = proposal.executed
     ? "executed"
@@ -1180,8 +1253,9 @@ function ProposalCard({
   return (
     <Card title={`Proposal #${proposal.nonce}`} icon={<Vote size={15} />}>
       <p className="text-[12px] text-[#57534e]">
-        Buy <b className="text-[#101114]">${formatUnits(proposal.amountIn, 6)}</b> of NVDAc · min{" "}
-        <b className="text-[#101114]">~${formatUnits(proposal.minAmountOut, 6)}</b>
+        Buy <b className="text-[#101114]">${formatUnits(proposal.amountIn, 6)}</b> of{" "}
+        <b className="text-[#101114]">{holdingSymbol}</b> · min{" "}
+        <b className="text-[#101114]">~{formatUnits(proposal.minAmountOut, 8)}</b>
       </p>
       <div className="mt-2 flex items-center justify-between text-[12px]">
         <span className="text-[#57534e]">
@@ -1244,6 +1318,7 @@ function WithdrawCard({
   const tx = useWaitForTransactionReceipt({ hash: txHash as `0x${string}` | undefined });
 
   const feed = asset?.[1] as `0x${string}` | undefined;
+  const holdingSymbol = stockByToken(asset?.[0])?.symbol ?? "stock";
   const quote = useReadContract({
     address: feed,
     abi: [{ type: "function", name: "latestRoundData", stateMutability: "view", inputs: [], outputs: [
@@ -1303,13 +1378,13 @@ function WithdrawCard({
               mode === m ? "bg-[#101114] text-white" : "bg-[#f5f3ee] text-[#57534e]"
             }`}
           >
-            {m === "auto" ? "Auto → USDC" : "Raw NVDAc"}
+            {m === "auto" ? "Auto → USDC" : `Raw ${holdingSymbol}`}
           </button>
         ))}
       </div>
       <p className="mt-2 text-[12px] leading-relaxed text-[#57534e]">
         {mode === "raw"
-          ? "Raw NVDAc only if your wallet clears Coinbase TRANSFER_RECEIVER_POLICY. Otherwise this reverts — use Auto → USDC."
+          ? `Raw ${holdingSymbol} only if your wallet clears Coinbase TRANSFER_RECEIVER_POLICY. Otherwise this reverts — use Auto → USDC.`
           : "Vault liquidates your share to USDC via Aerodrome automatically. No policy check needed."}
       </p>
       <button
