@@ -41,5 +41,20 @@
   },
   "note": "Mainnet deployment with native B20 Beryl precompiles. Outclasses Sepolia mock-token submissions. Deadline: September 9, 23:59 EST.",
     "explorer": "https://basescan.org",
-    "verify": "Verify on Basescan using the above addresses. Contracts inherit strict execution guardrails from Spenda control plane architecture."
+    "verify": "Verify on Basescan using the above addresses. Contracts inherit strict execution guardrails from Spenda control plane architecture.",
+  "testVault": {
+    "note": "Fresh CirclaVault reusing the LIVE asset registry + B20 precompile policy registry (Sep 9 2026). All 8 pool-backed stocks enabled; proves the syndicate can trade any registry stock, not just NVDAc.",
+    "vault": "0x1f4007b917cd446ae7545ce4de6688d54f62b67c",
+    "deployTx": "0x1885a58b90eebc52b40aab3644069f2e0b7c1376cb9916c9bb00cd150d2389d7",
+    "registry": "0xA433d976740203bAE030339e68d6f7b261aCEABd",
+    "policyRegistry": "0x8453000000000000000000000000000000000002",
+    "tickSpacing": 10,
+    "transactions": {
+      "applcBuy1Usdc": "0x14b596f6bbe1a399d9d17d4b2c25214feb20923b65a5efb334bfd1f613cf71b3",
+      "applcDeposit": "0x9572e34ada3ee8d2965d729aea16500579cb25ad590b0c38576722bf1eed3f1d",
+      "applcProposal": "0x188d9d72126dfa1feea2f1cdc884e6ddd678b7818c63f5023b6af61dd833c200",
+      "applcVote": "0xe5a2aa47027737c477bf00261fca3c9a32d5c359c01ce004a6d59b681cf087da"
+    },
+    "result": "314425 AAPLc held by vault (0.00314425 AAPL) after 1 USDC governed swap via Aerodrome Slipstream; poolValue ~$0.9994. portfolioAsset locked to AAPLc."
+  }
 }

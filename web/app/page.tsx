@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Users, LineChart, Smartphone, Play } from "lucide-react";
+import { Check, Users, LineChart, Smartphone, Play } from "lucide-react";
 
 const WorkflowDiagram = dynamic(() => import("@/components/WorkflowDiagram"), {
   ssr: false,
@@ -283,7 +283,7 @@ export default function Landing() {
               </div>
               <div className="flex-1 space-y-2 text-xs">
                 <div className="flex items-center justify-between rounded-full bg-[#EFF6FF] px-3 py-1.5">
-                  <span className="font-bold text-[#101114]">62% NVDAc</span>
+                  <span className="font-bold text-[#101114]">62% AAPLc</span>
                   <span className="font-mono text-[11px] text-[#77736c]">
                     800k
                   </span>
@@ -311,7 +311,7 @@ export default function Landing() {
           </div>
           <div className="absolute -right-3 -top-5 max-w-[240px] rounded-2xl border border-[#e3dfd7] bg-white p-3 shadow-[0_16px_40px_rgba(16,17,20,0.12)] max-md:right-0">
             <p className="font-[var(--font-sora)] text-[11px] font-bold leading-relaxed text-[#101114]">
-              Swap executed! 1.14 NVDAc @ $250
+              Swap executed! 314,425 AAPLc @ $318
             </p>
             <p className="mt-1 font-mono text-[10px] text-[#77736c]">
               mainnet proof ·{" "}
@@ -346,7 +346,7 @@ export default function Landing() {
             </div>
             <div>
               <p className="font-mono text-lg font-bold text-[#101114]">
-                0.80 NVDAc
+                314.4k AAPLc
               </p>
               <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-[#918d85]">
                 Governed buy · Aerodrome
@@ -408,11 +408,11 @@ export default function Landing() {
                 ONCHAIN PROOF
               </p>
               <h3 className="mt-1 font-[var(--font-sora)] text-[15px] font-semibold tracking-tight text-[#101114]">
-                A real governed NVDAc buy on Base Mainnet.
+                A real governed AAPLc buy on Base Mainnet.
               </h3>
               <p className="mt-1 max-w-[560px] font-[var(--font-sora)] text-[11px] leading-relaxed text-[#77736c]">
-                Sep 7, 2026 · 1 USDC in → fractional NVDAc held by the vault.
-                Every step verified on Basescan.
+                Sep 9, 2026 · 1 USDC in → 314,425 fractional AAPLc held by the
+                vault. Every step verified on Basescan.
               </p>
             </div>
             <a
@@ -427,30 +427,38 @@ export default function Landing() {
           <div className="divide-y divide-[#f0ede8]">
             {[
               {
+                step: "Vault deployed",
+                detail: "Fresh CirclaVault · live registry · 8 stocks enabled",
+                hash: "0x1885a58b90eebc52b40aab3644069f2e0b7c1376cb9916c9bb00cd150d2389d7",
+              },
+              {
                 step: "Deposit",
                 detail: "1 USDC pooled",
-                hash: "0xeaa0524114da48bf1ed6251e87e3e83d57cec10672dfaa8cddb891d7748a9a9b",
+                hash: "0x9572e34ada3ee8d2965d729aea16500579cb25ad590b0c38576722bf1eed3f1d",
               },
               {
                 step: "Proposal #1",
-                detail: "Buy NVDAc · vs Aerodrome",
-                hash: "0x9f3213e16bf89eec0e2c703bd2177a151aa0bff79735de5a154de4fd80ec2fcc",
+                detail: "Buy AAPLc · vs Aerodrome",
+                hash: "0x188d9d72126dfa1feea2f1cdc884e6ddd678b7818c63f5023b6af61dd833c200",
               },
               {
-                step: "Vote 2/2",
-                detail: "A + B approve · quorum met",
-                hash: "0x2bde7aad5afcd8ce93ef2484b0e9cc066f0e93b4e2668095a34ed55798439dc4",
+                step: "Vote",
+                detail: "Member approves · quorum met",
+                hash: "0xe5a2aa47027737c477bf00261fca3c9a32d5c359c01ce004a6d59b681cf087da",
               },
               {
                 step: "Swap executed",
-                detail: "430,908 NVDAc held by vault",
-                hash: "0x5ad3de769ca4a719da490fd766551bc3c98c607b51e00ce5442a241015648131",
+                detail: "314,425 AAPLc held by vault",
+                hash: "0x14b596f6bbe1a399d9d17d4b2c25214feb20923b65a5efb334bfd1f613cf71b3",
               },
-            ].map((row) => (
+            ].map((row, i) => (
               <div
                 key={row.step}
                 className="flex items-center gap-4 px-6 py-3"
               >
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#EFF6FF]">
+                  <Check className="h-3 w-3 text-[#0052FF]" aria-hidden />
+                </span>
                 <span className="w-[104px] shrink-0 font-[var(--font-sora)] text-xs font-semibold text-[#101114]">
                   {row.step}
                 </span>
@@ -472,10 +480,10 @@ export default function Landing() {
             <p className="font-mono text-[10px] leading-relaxed text-[#918d85]">
               CirclaVault{" "}
               <span className="text-[#0052FF]">
-                {isLive ? `${vault.slice(0, 10)}…${vault.slice(-6)}` : "0x…"}
+                {isLive ? `${vault.slice(0, 10)}…${vault.slice(-6)}` : "0x1f4007…b67c"}
               </span>{" "}
-              · NVDAc{" "}
-              0xb20000000000000000000078ee7ce2fE4908108C · Basescan-verified
+              · AAPLc{" "}
+              0xb200000000000000000000C2e324d24d7eEcd1fb · Basescan-verified
             </p>
           </div>
         </motion.div>
@@ -634,10 +642,10 @@ export default function Landing() {
               2/2 funded — <span className="font-bold">$100 pooled.</span>{" "}
               Propose a stock to buy.
             </BotMsg>
-            <YouMsg time="10:44">Buy 80 USDC of NVDAc</YouMsg>
+            <YouMsg time="10:44">Buy 80 USDC of AAPLc</YouMsg>
             <BotMsg time="10:44">
-              <span className="font-bold">Proposal #1</span> — 80 USDC → ~0.80
-              NVDAc via Aerodrome
+              <span className="font-bold">Proposal #1</span> — 80 USDC → ~0.25
+              AAPLc via Aerodrome
               <br />
               Min 0.792 · expires 30m · needs 2 approvals
               <br />
@@ -659,7 +667,7 @@ export default function Landing() {
             <BotMsg time="10:45">Quorum met 2/2 — executing…</BotMsg>
             <BotMsg time="10:46" highlight>
               <span className="font-bold">
-                Swap executed! 0.80 NVDAc @ $80
+                Swap executed! 0.25 AAPLc @ $318
               </span>
               <br />
               <span className="font-mono text-[11px] text-[#77736c]">
@@ -677,7 +685,7 @@ export default function Landing() {
             </BotMsg>
             <BotMsg time="10:46">
               Portfolio — Pool <span className="font-bold">$20.80</span> · 62%
-              NVDAc / 38% USDC
+              AAPLc / 38% USDC
               <br />
               Your claim <span className="font-bold">$10.40</span> · pro-rata
               units · Chainlink total-return
@@ -737,7 +745,7 @@ export default function Landing() {
         aria-label="Get started"
         className="mx-auto max-w-[640px] py-12 text-center"
       >
-       i <h2 className="font-[var(--font-sora)] text-[40px] font-semibold leading-[48px] tracking-[-0.015em] text-[#101114]">
+       <h2 className="font-[var(--font-sora)] text-[40px] font-semibold leading-[48px] tracking-[-0.015em] text-[#101114]">
           Start your syndicate today.
         </h2>
         <p className="mx-auto mt-3 max-w-[520px] font-[var(--font-sora)] text-[16px] leading-6 text-[#77736c]">
