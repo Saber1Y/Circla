@@ -43,7 +43,7 @@
     "explorer": "https://basescan.org",
     "verify": "Verify on Basescan using the above addresses. Contracts inherit strict execution guardrails from Spenda control plane architecture.",
   "testVault": {
-    "note": "Fresh CirclaVault reusing the LIVE asset registry + B20 precompile policy registry (Sep 9 2026). All 8 pool-backed stocks enabled; proves the syndicate can trade any registry stock, not just NVDAc.",
+    "note": "Fresh CirclaVault reusing the LIVE asset registry + B20 precompile policy registry (Sep 9 2026). All 8 pool-backed stocks enabled; proves the syndicate can trade any registry stock, not just NVDAc. Superseded by the multi-asset redeploy (multiAssetVault) which is now the active bot/landing vault.",
     "vault": "0x1f4007b917cd446ae7545ce4de6688d54f62b67c",
     "deployTx": "0x1885a58b90eebc52b40aab3644069f2e0b7c1376cb9916c9bb00cd150d2389d7",
     "registry": "0xA433d976740203bAE030339e68d6f7b261aCEABd",
@@ -56,5 +56,13 @@
       "applcVote": "0xe5a2aa47027737c477bf00261fca3c9a32d5c359c01ce004a6d59b681cf087da"
     },
     "result": "314425 AAPLc held by vault (0.00314425 AAPL) after 1 USDC governed swap via Aerodrome Slipstream; poolValue ~$0.9994. portfolioAsset locked to AAPLc."
+  },
+  "multiAssetVault": {
+    "note": "ACTIVE vault (Sep 9 2026). Fresh CirclaVault running the multi-asset basket bytecode, reusing the LIVE asset registry + B20 precompile policy registry. Mirrors the original demo config (Nairobi Tech Circle, maxMembers 5, quorum 2, contributionTarget 250e6, perTradeLimit 100e6, ttl 1800). Now the default vault for the bot, Render, and landing page. Portfolio is no longer locked to a single stock: proposals can add any registry-enabled stock to the basket.",
+    "vault": "0x25Fcc446bBfb7444F0b9738423dD58713361010d",
+    "deployTx": "0x134d9d0dbbcc4000e82ea1c5ec69e8983e2faeb75098475412586de194156ef0",
+    "registry": "0xA433d976740203bAE030339e68d6f7b261aCEABd",
+    "policyRegistry": "0x8453000000000000000000000000000000000002",
+    "status": "deployed, empty (no members yet). Members must rejoin and re-deposit on this address."
   }
 }

@@ -10,7 +10,7 @@ services:
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: CIRCLA_VAULT_ADDRESS
-        value: 0x83f550601Cc9Fc4397216bc8E3422408C285A464
+        value: 0x25Fcc446bBfb7444F0b9738423dD58713361010d
       - key: CIRCLA_TMA_URL
         value: https://circlabasebot.vercel.app/app
       - key: CIRCLA_TMA_DIRECT_LINK

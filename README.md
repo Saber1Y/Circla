@@ -88,7 +88,7 @@ The first purchase sets the primary display asset; the valuation and withdrawal 
 | Contract | Role | Address |
 | --- | --- | --- |
 | CirclaAssetRegistry | B20 allowlist, feeds, tick spacings, approved routers | `0xA433d976740203bAE030339e68d6f7b261aCEABd` |
-| CirclaVault | Circle membership, deposits, proposals, votes, swaps, withdrawals | `0x83f550601Cc9Fc4397216bc8E3422408C285A464` |
+| CirclaVault | Circle membership, deposits, proposals, votes, swaps, withdrawals (multi-asset basket) | `0x25Fcc446bBfb7444F0b9738423dD58713361010d` |
 | USDC | Contribution / settlement currency | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
 | NVDAc | Tokenized stock (first governed purchase) | `0xb20000000000000000000078ee7ce2fE4908108C` |
 | CirclaPolicyRegistry (fee sole) | TRANSFER_RECEIVER_POLICY for stock receivers | `0x8453000000000000000000000000000000000002` |
@@ -150,6 +150,10 @@ Confirm on [Basescan](https://basescan.org/address/0x83f550601Cc9Fc4397216bc8E34
 A second, TestSprite-style controlled purchase proves basket support:
 the test vault `0x1f4007b917cd446ae7545ce4de6688d54f62b67c` enabled all 8 pool-backed stocks and executed a 1 USDC AAPLc buy (`0x14b596f6bbe1a399d9d17d4b2c25214feb20923b65a5efb334bfd1f613cf71b3`).
 It holds `314,425` AAPLc units after the swap.
+
+The multi-asset redeploy (`0x25Fcc446bBfb7444F0b9738423dD58713361010d`, tx `0x134d9d0dbbcc4000e82ea1c5ec69e8983e2faeb75098475412586de194156ef0`) is the active vault for the bot, Render, and landing page.
+It runs the basket bytecode so a circle can rotate between every registry-enabled stock, not just the first purchase.
+It starts empty: members rejoin and re-deposit on the new address.
 
 ## Self-proving loop
 

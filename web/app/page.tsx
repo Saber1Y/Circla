@@ -25,7 +25,7 @@ const SecurityDiagram = dynamic(() => import("@/components/SecurityDiagram"), {
 });
 
 const VAULT_RE = /^0x[a-fA-F0-9]{40}$/i;
-const DEFAULT_VAULT = "0x83f550601Cc9Fc4397216bc8E3422408C285A464";
+const DEFAULT_VAULT = "0x25Fcc446bBfb7444F0b9738423dD58713361010d";
 const TG_URL = process.env.NEXT_PUBLIC_TELEGRAM_URL || "https://t.me/circlabasebot";
 const TG_APP_URL = process.env.NEXT_PUBLIC_TELEGRAM_APP_URL || TG_URL;
 const LOOM_URL =
