@@ -145,7 +145,8 @@ Every step is a confirmed transaction:
 
 After the swap the vault holds `430,908` NVDAc units (about 0.99 USDC at feed price) and has `0` USDC remaining.
 The full pool is deployed into the tokenized stock.
-Confirm on [Basescan](https://basescan.org/address/0x83f550601Cc9Fc4397216bc8E3422408C285A464).
+Confirm the original proof on this vault's [Basescan page](https://basescan.org/address/0x83f550601Cc9Fc4397216bc8E3422408C285A464).
+The original vault is superseded by the multi-asset redeploy below.
 
 A second, TestSprite-style controlled purchase proves basket support:
 the test vault `0x1f4007b917cd446ae7545ce4de6688d54f62b67c` enabled all 8 pool-backed stocks and executed a 1 USDC AAPLc buy (`0x14b596f6bbe1a399d9d17d4b2c25214feb20923b65a5efb334bfd1f613cf71b3`).
