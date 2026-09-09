@@ -1231,7 +1231,14 @@ function ProposalCard({
     args: [proposal.nonce, address as `0x${string}`],
     query: { enabled: Boolean(vault && address && isMember) },
   });
+  const proposalAssetConfig = useReadContract({
+    address: REGISTRY as `0x${string}`,
+    abi: registryAbi as Abi,
+    functionName: "getAsset",
+    args: [proposal.asset as `0x${string}`],
+  });
   const alreadyVoted = voteStatus.data === true;
+  const proposalTickSpacing = (proposalAssetConfig.data as AssetConfigTuple | undefined)?.[3];
   const holdingSymbol =
     stockByToken(proposal.asset)?.symbol ?? `${proposal.asset.slice(0, 6)}…`;
 
@@ -1296,9 +1303,9 @@ function ProposalCard({
           </button>
         </div>
       )}
-      {status === "awaiting votes" && quorum > 0 && proposal.yesVotes >= BigInt(quorum) && proposal.yesVotes > proposal.noVotes && isMember && (
+      {status === "awaiting votes" && quorum > 0 && proposal.yesVotes >= BigInt(quorum) && proposal.yesVotes > proposal.noVotes && isMember && proposalTickSpacing !== undefined && (
         <button
-          onClick={() => action("executeProposal", [proposal.router, proposal.nonce, 60])}
+          onClick={() => action("executeProposal", [proposal.router, proposal.nonce, proposalTickSpacing])}
           disabled={isPending || step === "executeProposal"}
           className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#16a34a] py-2.5 text-[13px] font-semibold text-white disabled:opacity-50"
         >
