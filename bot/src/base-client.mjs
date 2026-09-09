@@ -21,6 +21,9 @@ const vaultAbi = parseAbi([
 // logs from here yields every member's lifetime deposits.
 export const VAULT_DEPLOY_BLOCK = 50985040n;
 
+// public mainnet.base.org caps eth_getLogs around 2-3k blocks (413 otherwise)
+export const LOG_SCAN_CHUNK = 2_000n;
+
 // contribution events, indexed for /members
 const contributionEvent = parseAbi(['event ContributionReceived(address indexed member, uint256 amount, uint256 units)']);
 
@@ -116,11 +119,12 @@ export async function readMemberShares(client, vaultAddress) {
 }
 
 // Lifetime USDC each member deposited, from ContributionReceived logs.
-// Scanned in 8k-block chunks (Base RPC caps eth_getLogs payloads), then
-// dedupled - mirrors pollVaultEvents so /members works for older vaults too.
+// Scanned in LOG_SCAN_CHUNK-sized chunks (public Base RPC caps eth_getLogs
+// payloads around 2-3k blocks), then deduped - mirrors pollVaultEvents so
+// /members works for older vaults too.
 export async function readContributionTotals(client, vaultAddress) {
   const current = await client.getBlockNumber();
-  const MAX_RANGE = 8_000n;
+  const MAX_RANGE = LOG_SCAN_CHUNK;
   const totals = new Map();
   let cursor = VAULT_DEPLOY_BLOCK;
   while (cursor <= current) {
