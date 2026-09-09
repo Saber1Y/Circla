@@ -348,12 +348,14 @@ export default function AppPage() {
               members={memberList}
               memberUnitsList={(memberShares.data ?? []).map((r) => (r.result as bigint | undefined) ?? 0n)}
               address={address}
+              vault={vault}
             />
           ) : (
             <ActionsView
               isMember={isMember}
               address={address}
               vault={vault}
+              quorum={(quorumRes?.result as number | undefined) ?? 0}
               myUnits={isMember ? (myUnits.data as bigint | undefined) : undefined}
               proposal={proposal}
               usdcBalance={usdcBalance.data as bigint | undefined}
@@ -710,6 +712,7 @@ function VaultView({
   members,
   memberUnitsList,
   address,
+  vault,
 }: {
   poolValue?: bigint;
   totalUnits: bigint;
@@ -724,6 +727,7 @@ function VaultView({
   members: string[];
   memberUnitsList: bigint[];
   address?: string;
+  vault?: `0x${string}`;
 }) {
   const poolTxt =
     poolValue === undefined
@@ -825,7 +829,7 @@ function VaultView({
       )}
 
       {proposal && (
-        <ProposalCard proposal={proposal} quorum={quorum} compact isMember={isMember} />
+        <ProposalCard proposal={proposal} quorum={quorum} compact isMember={isMember} vault={vault} address={address} />
       )}
     </div>
   );
@@ -835,6 +839,7 @@ function ActionsView({
   isMember,
   address,
   vault,
+  quorum,
   myUnits,
   proposal,
   usdcBalance,
@@ -854,6 +859,7 @@ function ActionsView({
   isMember: boolean;
   address?: string;
   vault?: `0x${string}`;
+  quorum: number;
   myUnits?: bigint;
   proposal?: Proposal;
   usdcBalance?: bigint;
@@ -894,7 +900,7 @@ function ActionsView({
             onSuccess={onSuccess}
           />
           {proposal && (
-            <ProposalCard proposal={proposal} quorum={0} isMember vault={vault} onSuccess={onSuccess} />
+            <ProposalCard proposal={proposal} quorum={quorum} isMember address={address} vault={vault} onSuccess={onSuccess} />
           )}
           <WithdrawCard
             myUnits={myUnits}
@@ -1205,6 +1211,7 @@ function ProposalCard({
   compact = false,
   isMember,
   vault,
+  address,
   onSuccess,
 }: {
   proposal: Proposal;
@@ -1212,11 +1219,19 @@ function ProposalCard({
   compact?: boolean;
   isMember: boolean;
   vault?: `0x${string}`;
+  address?: string;
   onSuccess?: () => void;
 }) {
   const { writeContractAsync, isPending, error } = useWriteContract();
   const [step, setStep] = useState<string | null>(null);
-  const q = quorum || Number(proposal.yesVotes) || 0;
+  const voteStatus = useReadContract({
+    address: vault,
+    abi: vaultAbi as Abi,
+    functionName: "hasVoted",
+    args: [proposal.nonce, address as `0x${string}`],
+    query: { enabled: Boolean(vault && address && isMember) },
+  });
+  const alreadyVoted = voteStatus.data === true;
   const holdingSymbol =
     stockByToken(proposal.asset)?.symbol ?? `${proposal.asset.slice(0, 6)}…`;
 
@@ -1260,7 +1275,10 @@ function ProposalCard({
           {status}
         </span>
       </div>
-      {(status === "awaiting votes" || compact === false) && isMember && status === "awaiting votes" && (
+      {status === "awaiting votes" && alreadyVoted && (
+        <p className="mt-3 text-[12px] font-semibold text-[#57534e]">You already voted on this proposal.</p>
+      )}
+      {(status === "awaiting votes" || compact === false) && isMember && !alreadyVoted && status === "awaiting votes" && (
         <div className="mt-3 flex gap-2">
           <button
             onClick={() => action("vote", [proposal.nonce, true])}
@@ -1278,7 +1296,7 @@ function ProposalCard({
           </button>
         </div>
       )}
-      {status === "awaiting votes" && proposal.yesVotes >= BigInt(q) && proposal.yesVotes > proposal.noVotes && isMember && (
+      {status === "awaiting votes" && quorum > 0 && proposal.yesVotes >= BigInt(quorum) && proposal.yesVotes > proposal.noVotes && isMember && (
         <button
           onClick={() => action("executeProposal", [proposal.router, proposal.nonce, 60])}
           disabled={isPending || step === "executeProposal"}

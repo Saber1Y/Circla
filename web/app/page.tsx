@@ -26,10 +26,12 @@ const SecurityDiagram = dynamic(() => import("@/components/SecurityDiagram"), {
 
 const VAULT_RE = /^0x[a-fA-F0-9]{40}$/i;
 const DEFAULT_VAULT = "0x25Fcc446bBfb7444F0b9738423dD58713361010d";
-const TG_URL = process.env.NEXT_PUBLIC_TELEGRAM_URL || "https://t.me/circlabasebot";
+const TG_URL =
+  process.env.NEXT_PUBLIC_TELEGRAM_URL || "https://t.me/circlabasebot";
 const TG_APP_URL = process.env.NEXT_PUBLIC_TELEGRAM_APP_URL || TG_URL;
 const LOOM_URL =
-  process.env.NEXT_PUBLIC_LOOM_URL || "https://www.loom.com/embed/acc8d6011798427895ef7a2a9f996094";
+  process.env.NEXT_PUBLIC_LOOM_URL ||
+  "https://www.loom.com/embed/acc8d6011798427895ef7a2a9f996094";
 const EXPLORER = "https://basescan.org";
 
 function Avatar({ initial, bot }: { initial: string; bot?: boolean }) {
@@ -279,7 +281,9 @@ export default function Landing() {
               </div>
               <div className="flex-1 space-y-2 text-xs">
                 <div className="flex items-center justify-between rounded-full bg-[#EFF6FF] px-3 py-1.5">
-                  <span className="font-bold text-[#101114]">314,425 AAPLc</span>
+                  <span className="font-bold text-[#101114]">
+                    314,425 AAPLc
+                  </span>
                   <span className="font-mono text-[11px] text-[#77736c]">
                     $318/sh
                   </span>
@@ -524,7 +528,8 @@ export default function Landing() {
                       />
                       <span
                         className={`absolute left-1/2 top-[20px] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-[#f5f3ee] px-2.5 py-1 ${
-                          row.flow!.startsWith("314") || row.flow!.startsWith("+")
+                          row.flow!.startsWith("314") ||
+                          row.flow!.startsWith("+")
                             ? "font-[var(--font-sora)] text-xs font-bold tracking-tight text-[#101114]"
                             : "font-[var(--font-sora)] text-xs font-semibold text-[#0052FF]"
                         }`}
@@ -595,7 +600,7 @@ export default function Landing() {
               </h3>
             </div>
             <span className="hidden rounded-full bg-[#EFF6FF] px-3 py-1.5 text-[11px] font-bold text-[#0052FF] md:inline">
-              2 min
+              4:37
             </span>
           </div>
           {LOOM_URL ? (
@@ -701,8 +706,8 @@ export default function Landing() {
               Watch a syndicate run end to end.
             </h3>
             <p className="mt-1 max-w-[560px] font-[var(--font-sora)] text-[11px] leading-relaxed text-[#77736c]">
-              Real commands, real receipts — an illustrated run on Base
-              Mainnet. Every bot message links Basescan.
+              Real commands, real receipts — an illustrated run on Base Mainnet.
+              Every bot message links Basescan.
             </p>
           </div>
           <span className="hidden items-center gap-2 rounded-full bg-[#f5f3ee] px-3 py-1.5 text-[11px] font-bold text-[#77736c] md:inline-flex">
@@ -760,7 +765,7 @@ export default function Landing() {
             <BotMsg time="10:45">Quorum met 2/2 — executing…</BotMsg>
             <BotMsg time="10:46" highlight>
               <span className="font-bold">
-Swap executed! 1 USDC → 314,425 AAPLc
+                Swap executed! 1 USDC → 314,425 AAPLc
               </span>
               <br />
               <span className="font-mono text-[11px] text-[#77736c]">
@@ -833,7 +838,7 @@ Swap executed! 1 USDC → 314,425 AAPLc
         aria-label="Get started"
         className="mx-auto max-w-[640px] py-12 text-center"
       >
-       <h2 className="font-[var(--font-sora)] text-[40px] font-semibold leading-[48px] tracking-[-0.015em] text-[#101114]">
+        <h2 className="font-[var(--font-sora)] text-[40px] font-semibold leading-[48px] tracking-[-0.015em] text-[#101114]">
           Start your syndicate today.
         </h2>
         <p className="mx-auto mt-3 max-w-[520px] font-[var(--font-sora)] text-[16px] leading-6 text-[#77736c]">
