@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: circla-bot
+    runtime: docker
+    rootDir: bot
+    plan: free
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: CIRCLA_VAULT_ADDRESS
+        value: 0x83f550601Cc9Fc4397216bc8E3422408C285A464
+      - key: CIRCLA_TMA_URL
+        value: https://circlabasebot.vercel.app/app
+      - key: CIRCLA_TMA_DIRECT_LINK
+        value: https://t.me/circlabasebot/circlabasebot
+      - key: BASE_RPC_URL
+        value: https://mainnet.base.org
+      - key: CIRCLA_WEBHOOK_URL
+        sync: false
+      - key: CIRCLA_WEBHOOK_SECRET
+        sync: false

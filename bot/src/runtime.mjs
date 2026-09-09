@@ -49,12 +49,16 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
   // the bot's group bindings, and pushes it so Vercel rebuilds and the header
   // shows the real group name. Telegram often omits `chat` from initData for
   // Direct Link launches inside groups, so the title rides through here.
+  // Only runs when inside the git repo (local dev); a containerized bot skips
+  // this because it has no repo checkout or credentials.
   const __dirname = dirname(fileURLToPath(import.meta.url));
   const repoRoot = resolve(__dirname, '..', '..');
   const webCirclesFile = join(repoRoot, 'web', 'app', 'app', 'circles.ts');
+  const canSyncCatalog = existsSync(join(repoRoot, '.git')) && process.env.CIRCLA_SKIP_GIT_SYNC !== '1';
   let lastSyncedCatalog = "";
 
   function syncTitleCatalog(circle) {
+    if (!canSyncCatalog) return;
     let entries = store.listCircles();
     const found = entries.some((e) => e.vault.toLowerCase() === circle.vault.toLowerCase() && e.chatId === String(circle.chatId));
     if (!found) entries = [...entries, { chatId: String(circle.chatId), vault: circle.vault, title: circle.title, isDefault: false }];
@@ -362,11 +366,14 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
   const rawLaunch = bot.launch.bind(bot);
   return Object.assign(bot, {
     startWatcher,
-    async launch() {
+    async restoreWatchers() {
       for (const circle of store.listCircles()) {
         await startWatcher(circle.chatId).catch(() => {});
       }
-      return rawLaunch();
+    },
+    async launch(options) {
+      await this.restoreWatchers();
+      return rawLaunch(options);
     },
   });
 }
