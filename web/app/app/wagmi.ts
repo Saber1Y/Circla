@@ -14,6 +14,7 @@ export const wagmiConfig = createConfig({
     injected(),
     coinbaseWallet({
       appName: "Circla",
+      preference: { options: "all" },
     }),
     // Optional: only wired when a WalletConnect Cloud Project ID is configured.
     // Works inside Telegram's WebView via QR pairing (no popup / window.opener).
