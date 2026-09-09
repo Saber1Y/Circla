@@ -10,7 +10,7 @@ Every step is onchain and Basescan-verifiable.
 ![Loop](https://img.shields.io/badge/loop-self--proving-blueviolet)
 ![Stack](https://img.shields.io/badge/stack-Foundry%20+%20Aerodrome%20+%20Telegram-orange)
 
-## Demo (2 min)
+## Demo (4:37)
 
 [![Loom demo](https://www.loom.com/embed/acc8d6011798427895ef7a2a9f996094)](https://www.loom.com/share/acc8d6011798427895ef7a2a9f996094)
 
