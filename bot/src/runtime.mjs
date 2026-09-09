@@ -12,6 +12,13 @@ import { createCircleStore } from './circle-store.mjs';
 import { createWatcher, pollVaultEvents, readQuorum, formatEvent } from './onchain-watcher.mjs';
 import { COINBASE_STOCKS } from './base-assets.mjs';
 
+// Clickable Basescan links use MessageEntity/HTML parse mode; addresses and
+// tx hashes in replies become real links instead of dead hex text.
+const EXPLORER_BASE = 'https://basescan.org';
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const addrLink = (addr) => `<a href="${EXPLORER_BASE}/address/${addr}">${addr}</a>`;
+const shortAddrLink = (addr) => `<a href="${EXPLORER_BASE}/address/${addr}">${addr.slice(0, 6)}…${addr.slice(-4)}</a>`;
+
 // Lightweight notification engine — deterministic only, no conversational AI.
 // Chat handles social dynamics; execution happens on Base via member wallets
 // (opened through the Telegram Mini App). The bot broadcasts REAL onchain
@@ -205,19 +212,22 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
         readQuorum(client, circle.vault).then((q) => q.name),
       ]);
       const lines = [
-        circle.title || name,
+        esc(circle.title || name),
         `Members: ${members.length}`,
         '',
         ...members.map((s) => {
           const deposited = totals.get(getAddress(s.address).toLowerCase()) ?? 0n;
           const pct = totalUnits > 0n ? (s.units * 10000n) / totalUnits : 0n;
           return [
-            getAddress(s.address),
+            addrLink(getAddress(s.address)),
             `  deposited ${formatUnits(deposited, 6)} USDC · ${formatUnits(s.units, 18)} units · ${Number(pct) / 100}% of pool`,
           ].join('\n');
         }),
       ];
-      await ctx.reply(lines.join('\n'), Markup.inlineKeyboard([appButton(ctx, 'Open CIRCLA app', circle)]));
+      await ctx.reply(lines.join('\n'), {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard([appButton(ctx, 'Open CIRCLA app', circle)]),
+      });
     } catch (error) {
       await ctx.reply(`Vault read unavailable: ${error.shortMessage ?? error.message}`);
     }
@@ -232,16 +242,16 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
       const now = Math.floor(Date.now() / 1000);
       const secsLeft = Number(p.deadline) - now;
       const status = p.executed ? 'executed' : p.cancelled ? 'cancelled' : secsLeft <= 0 ? 'expired' : 'awaiting votes';
-      const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+      const short = (a) => a.slice(0, 6) + '…' + a.slice(-4);
       const lines = [
         `Proposal #${p.id}`,
-        `Buy ${formatUnits(p.amountIn, 6)} USDC → ${short(p.asset)}`,
+        `Buy ${formatUnits(p.amountIn, 6)} USDC → <a href="${EXPLORER_BASE}/token/${p.asset}">${esc(short(p.asset))}</a>`,
         `Votes: ${p.yesVotes}/${p.quorum} yes · ${p.noVotes} no`,
-        `Status: ${status}${status === 'awaiting votes' ? ` · expires in ${Math.max(0, Math.floor(secsLeft / 60))}m` : ''}`,
+        `Status: ${esc(status)}${status === 'awaiting votes' ? ` · expires in ${Math.max(0, Math.floor(secsLeft / 60))}m` : ''}`,
       ];
-      if (p.voted.length > 0) lines.push(`Voted: ${p.voted.map(short).join(', ')}`);
+      if (p.voted.length > 0) lines.push(`Voted: ${p.voted.map((a) => shortAddrLink(getAddress(a))).join(', ')}`);
       else lines.push('Voted: no one yet');
-      await ctx.reply(lines.join('\n'));
+      await ctx.reply(lines.join('\n'), { parse_mode: 'HTML' });
     } catch (error) {
       await ctx.reply(`Votes unavailable: ${error.shortMessage ?? error.message}`);
     }
@@ -405,7 +415,7 @@ async function replySnapshot(ctx, client, circle, includeAsset, appButton) {
   try {
     const snapshot = await readVaultSnapshot(client, circle.vault);
     const lines = [
-      circle.title || snapshot.name,
+      esc(circle.title || snapshot.name),
       `Members: ${snapshot.members.length}`,
       snapshot.poolValue === null
         ? 'Pool value: awaiting price feed (market closed)'
@@ -413,10 +423,13 @@ async function replySnapshot(ctx, client, circle, includeAsset, appButton) {
       `Total units: ${formatUnits(snapshot.totalUnits, 18)}`,
     ];
     if (includeAsset && snapshot.asset !== '0x0000000000000000000000000000000000000000') {
-      lines.push(`Portfolio asset: ${getAddress(snapshot.asset)}`);
+      lines.push(`Portfolio asset: ${addrLink(getAddress(snapshot.asset))}`);
       lines.push(`Adjusted balance: ${formatUnits(snapshot.adjustedBalance, 8)}`);
     }
-    await ctx.reply(lines.join('\n'), Markup.inlineKeyboard([appButton(ctx, 'Open CIRCLA app', circle)]));
+    await ctx.reply(lines.join('\n'), {
+      parse_mode: 'HTML',
+      ...Markup.inlineKeyboard([appButton(ctx, 'Open CIRCLA app', circle)]),
+    });
   } catch (error) {
     await ctx.reply(`Vault read unavailable: ${error.shortMessage ?? error.message}`);
   }
