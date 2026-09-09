@@ -1,6 +1,6 @@
 "use client";
 
-import ReactFlow, { Background, Controls, Handle, Position, type Node, type Edge } from "reactflow";
+import ReactFlow, { Background, Handle, Position, type Node, type Edge } from "reactflow";
 import "reactflow/dist/style.css";
 import { MessageCircle, GitBranch, Clock3, Send, Bot, Check } from "lucide-react";
 
@@ -112,17 +112,19 @@ export default function WorkflowDiagram() {
   ];
 
   return (
-    <div className="overflow-hidden rounded-[24px] border border-[#e3dfd7] bg-white">
-      <div className="flex items-center justify-between border-b border-[#f0ede8] px-6 py-4">
-        <div>
-          <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#0052FF]">SYNDICATE LOOP</p>
-          <h3 className="mt-1 font-[var(--font-sora)] text-[15px] font-semibold tracking-tight text-[#101114]">Chat intent → B20 execution</h3>
-          <p className="mt-1 max-w-[560px] font-[var(--font-sora)] text-[11px] leading-relaxed text-[#77736c]">Flexible execution system — compose intent, portfolio logic, quotes, routes, and settlement dynamically. Same design system as the landing.</p>
-        </div>
-        <span className="hidden rounded-full bg-[#EFF6FF] px-3 py-1.5 text-[11px] font-bold text-[#0052FF] md:inline">React Flow · Base proof</span>
-      </div>
+    <div>
+      <p className="text-left text-[11px] font-extrabold tracking-[0.14em] text-[#0052FF]">
+        SYNDICATE LOOP
+      </p>
+      <h3 className="mt-1 text-left font-[var(--font-sora)] text-[15px] font-semibold tracking-tight text-[#101114]">
+        Chat intent → B20 execution
+      </h3>
+      <p className="mt-1 max-w-[560px] text-left font-[var(--font-sora)] text-[11px] leading-relaxed text-[#77736c]">
+        Flexible execution system — compose intent, portfolio logic, quotes,
+        routes, and settlement dynamically. Same design system as the landing.
+      </p>
 
-      <div className="h-[360px] w-full bg-white">
+      <div className="mt-4 h-[380px] w-full">
         <ReactFlow
           nodes={nodes as any}
           edges={edges as any}
@@ -135,20 +137,10 @@ export default function WorkflowDiagram() {
           elementsSelectable={false}
           panOnScroll
           zoomOnScroll
-          className="bg-white"
         >
-          <Background color="#f5f3ee" gap={20} size={1} />
-          <Controls showInteractive={false} className="!rounded-xl !border-[#e3dfd7] !shadow-sm" />
+          <Background color="#e5e3df" gap={24} size={1} />
         </ReactFlow>
       </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#f0ede8] bg-[#fcfaf8] px-6 py-3 text-[10px] tracking-wide text-[#77736c]">
-        <span className="font-[var(--font-sora)]">
-          <span className="font-bold text-[#0052FF]">Telegram</span> → <span className="font-bold text-[#0052FF]">Quorum Check</span> → <span className="font-bold text-[#0052FF]">Governance</span> → <span className="font-bold text-[#0052FF]">Aerodrome Swap</span> <span className="text-[#d6d3cd]">/</span> <span className="font-bold text-[#0052FF]">Telegram Receipt</span>
-        </span>
-        <span className="hidden font-[var(--font-sora)] md:inline">Yes = quorum met · No = waiting · Dashed = async · Base blue + white only</span>
-      </div>
-      <p className="border-t border-[#f0ede8] bg-white px-6 py-2 text-center font-[var(--font-sora)] text-[10px] tracking-wide text-[#b8b4ad]">Architecture canvas — compose intent, analysis, portfolio, quotes, routes, settlement, and conditions dynamically. Not a fixed workflow.</p>
     </div>
   );
 }

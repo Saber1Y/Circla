@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Check, Users, LineChart, Smartphone, Play } from "lucide-react";
 
@@ -274,7 +274,7 @@ export default function Landing() {
                 />
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="font-mono text-sm font-bold text-[#101114]">
-                    $20.80
+                    $1.00
                   </span>
                   <span className="text-[9px] font-semibold text-[#918d85]">
                     POOL
@@ -283,15 +283,15 @@ export default function Landing() {
               </div>
               <div className="flex-1 space-y-2 text-xs">
                 <div className="flex items-center justify-between rounded-full bg-[#EFF6FF] px-3 py-1.5">
-                  <span className="font-bold text-[#101114]">62% AAPLc</span>
+                  <span className="font-bold text-[#101114]">314,425 AAPLc</span>
                   <span className="font-mono text-[11px] text-[#77736c]">
-                    800k
+                    $318/sh
                   </span>
                 </div>
                 <div className="flex items-center justify-between rounded-full bg-[#f5f3ee] px-3 py-1.5">
-                  <span className="font-bold text-[#101114]">38% USDC</span>
+                  <span className="font-bold text-[#101114]">0 USDC</span>
                   <span className="font-mono text-[11px] text-[#77736c]">
-                    $12.50
+                    $0.00
                   </span>
                 </div>
                 <p className="font-mono text-[10px] text-[#918d85]">
@@ -301,22 +301,84 @@ export default function Landing() {
             </div>
             <div className="mt-4">
               <div className="flex items-center justify-between text-[11px] font-semibold">
-                <span className="text-[#77736c]">$200 / $250 threshold</span>
-                <span className="text-[#0052FF]">Quorum 2/2 ✓</span>
+                <span className="text-[#77736c]">Quorum 2/2 · met</span>
+                <span className="text-[#0052FF]">Proposal #1 ✓</span>
               </div>
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#f5f3ee]">
-                <div className="h-2 w-[80%] rounded-full bg-[#0052FF]" />
+                <div className="h-2 w-full rounded-full bg-[#0052FF]" />
+              </div>
+            </div>
+            <div className="mt-4 border-t border-[#f0ede8] pt-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#918d85]">
+                  Activity
+                </p>
+                <a
+                  href={`${EXPLORER}/tx/0x14b596f6bbe1a399d9d17d4b2c25214feb20923b65a5efb334bfd1f613cf71b3`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[10px] font-bold text-[#0052FF] hover:underline"
+                >
+                  Basescan ↗
+                </a>
+              </div>
+              <div className="mt-2 space-y-1.5">
+                {[
+                  {
+                    label: "Vault deployed",
+                    value: "0x1885…d9d7",
+                    hash: "0x1885a58b90eebc52b40aab3644069f2e0b7c1376cb9916c9bb00cd150d2389d7",
+                  },
+                  {
+                    label: "Deposit",
+                    value: "+$1.00",
+                    hash: "0x9572e34ada3ee8d2965d729aea16500579cb25ad590b0c38576722bf1eed3f1d",
+                  },
+                  {
+                    label: "Proposal #1",
+                    value: "Buy AAPLc",
+                    hash: "0x188d9d72126dfa1feea2f1cdc884e6ddd678b7818c63f5023b6af61dd833c200",
+                  },
+                  {
+                    label: "Vote",
+                    value: "2/2 ✓",
+                    hash: "0xe5a2aa47027737c477bf00261fca3c9a32d5c359c01ce004a6d59b681cf087da",
+                  },
+                  {
+                    label: "Swap",
+                    value: "314,425 AAPLc",
+                    hash: "0x14b596f6bbe1a399d9d17d4b2c25214feb20923b65a5efb334bfd1f613cf71b3",
+                  },
+                ].map((tx) => (
+                  <div
+                    key={tx.label}
+                    className="flex items-center justify-between gap-2 rounded-lg bg-[#fcfaf8] px-2.5 py-1.5"
+                  >
+                    <span className="text-[10px] font-semibold text-[#101114]">
+                      {tx.label}
+                    </span>
+                    <a
+                      href={`${EXPLORER}/tx/${tx.hash}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="group inline-flex items-center gap-1.5 font-mono text-[9px] text-[#0052FF] hover:underline"
+                    >
+                      <span className="h-1 w-1 rounded-full bg-[#16a34a]" />
+                      {tx.value}
+                    </a>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
           <div className="absolute -right-3 -top-5 max-w-[240px] rounded-2xl border border-[#e3dfd7] bg-white p-3 shadow-[0_16px_40px_rgba(16,17,20,0.12)] max-md:right-0">
             <p className="font-[var(--font-sora)] text-[11px] font-bold leading-relaxed text-[#101114]">
-              Swap executed! 314,425 AAPLc @ $318
+              Swap executed! 1 USDC → 314,425 AAPLc
             </p>
             <p className="mt-1 font-mono text-[10px] text-[#77736c]">
               mainnet proof ·{" "}
               <a
-                href={vaultLink}
+                href={`${EXPLORER}/tx/0x14b596f6bbe1a399d9d17d4b2c25214feb20923b65a5efb334bfd1f613cf71b3`}
                 target="_blank"
                 rel="noreferrer"
                 className="underline"
@@ -330,7 +392,7 @@ export default function Landing() {
               ✓
             </span>
             <span className="font-mono text-[11px] font-semibold text-[#101114]">
-              /contribute 50 USDC ✓
+              /contribute 1 USDC ✓
             </span>
           </div>
         </motion.div>
@@ -396,13 +458,10 @@ export default function Landing() {
       <section
         id="proof"
         aria-label="Onchain proof"
-        className="mx-auto mt-6 max-w-[800px]"
+        className="mx-auto mb-14 mt-12 max-w-[1000px]"
       >
-        <motion.div
-          {...inView(0)}
-          className="overflow-hidden rounded-[24px] border border-[#e3dfd7] bg-white"
-        >
-          <div className="flex items-center justify-between gap-4 border-b border-[#f0ede8] px-6 py-4">
+        <motion.div {...inView(0)}>
+          <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-[11px] font-extrabold tracking-[0.14em] text-[#0052FF]">
                 ONCHAIN PROOF
@@ -411,8 +470,8 @@ export default function Landing() {
                 A real governed AAPLc buy on Base Mainnet.
               </h3>
               <p className="mt-1 max-w-[560px] font-[var(--font-sora)] text-[11px] leading-relaxed text-[#77736c]">
-                Sep 9, 2026 · 1 USDC in → 314,425 fractional AAPLc held by the
-                vault. Every step verified on Basescan.
+                Sep 9, 2026 · Statement of account · 1 USDC in → 314,425 AAPLc
+                held by the vault.
               </p>
             </div>
             <a
@@ -424,68 +483,106 @@ export default function Landing() {
               Vault ↗
             </a>
           </div>
-          <div className="divide-y divide-[#f0ede8]">
-            {[
-              {
-                step: "Vault deployed",
-                detail: "Fresh CirclaVault · live registry · 8 stocks enabled",
-                hash: "0x1885a58b90eebc52b40aab3644069f2e0b7c1376cb9916c9bb00cd150d2389d7",
-              },
-              {
-                step: "Deposit",
-                detail: "1 USDC pooled",
-                hash: "0x9572e34ada3ee8d2965d729aea16500579cb25ad590b0c38576722bf1eed3f1d",
-              },
-              {
-                step: "Proposal #1",
-                detail: "Buy AAPLc · vs Aerodrome",
-                hash: "0x188d9d72126dfa1feea2f1cdc884e6ddd678b7818c63f5023b6af61dd833c200",
-              },
-              {
-                step: "Vote",
-                detail: "Member approves · quorum met",
-                hash: "0xe5a2aa47027737c477bf00261fca3c9a32d5c359c01ce004a6d59b681cf087da",
-              },
-              {
-                step: "Swap executed",
-                detail: "314,425 AAPLc held by vault",
-                hash: "0x14b596f6bbe1a399d9d17d4b2c25214feb20923b65a5efb334bfd1f613cf71b3",
-              },
-            ].map((row, i) => (
-              <div
-                key={row.step}
-                className="flex items-center gap-4 px-6 py-3"
-              >
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#EFF6FF]">
-                  <Check className="h-3 w-3 text-[#0052FF]" aria-hidden />
-                </span>
-                <span className="w-[104px] shrink-0 font-[var(--font-sora)] text-xs font-semibold text-[#101114]">
-                  {row.step}
-                </span>
-                <span className="flex-1 truncate font-[var(--font-sora)] text-[11px] text-[#77736c]">
-                  {row.detail}
-                </span>
-                <a
-                  href={`https://basescan.org/tx/${row.hash}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="shrink-0 font-mono text-[10px] text-[#0052FF] underline-offset-2 hover:underline"
-                >
-                  {row.hash.slice(0, 10)}…{row.hash.slice(-6)} ↗
-                </a>
-              </div>
-            ))}
+
+          <div className="mt-8 overflow-x-auto pb-2">
+            <div className="flex min-w-[680px] items-start md:min-w-0">
+              {[
+                {
+                  step: "Deploy",
+                  detail: "Fresh vault · 8 stocks",
+                  hash: "0x1885a58b90eebc52b40aab3644069f2e0b7c1376cb9916c9bb00cd150d2389d7",
+                  flow: null as string | null,
+                },
+                {
+                  step: "Deposit",
+                  detail: "USDC in",
+                  hash: "0x9572e34ada3ee8d2965d729aea16500579cb25ad590b0c38576722bf1eed3f1d",
+                  flow: "+1 USDC",
+                },
+                {
+                  step: "Proposal #1",
+                  detail: "Buy AAPLc · Aerodrome",
+                  hash: "0x188d9d72126dfa1feea2f1cdc884e6ddd678b7818c63f5023b6af61dd833c200",
+                  flow: "buy intent",
+                },
+                {
+                  step: "Vote",
+                  detail: "Quorum met",
+                  hash: "0xe5a2aa47027737c477bf00261fca3c9a32d5c359c01ce004a6d59b681cf087da",
+                  flow: "approved",
+                },
+                {
+                  step: "Swap executed",
+                  detail: "mainnet proof · Basescan",
+                  hash: "0x14b596f6bbe1a399d9d17d4b2c25214feb20923b65a5efb334bfd1f613cf71b3",
+                  flow: "1 USDC → 314,425 AAPLc",
+                  closing: true,
+                },
+              ].map((row, i) => (
+                <Fragment key={row.step}>
+                  {i > 0 && (
+                    <div className="relative h-10 min-w-[56px] flex-1 md:min-w-[64px]">
+                      <span
+                        aria-hidden
+                        className="absolute left-0 right-0 top-[19px] h-[2px] rounded-full bg-[#d6d3cd]"
+                      />
+                      <span
+                        className={`absolute left-1/2 top-[20px] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-[#f5f3ee] px-2.5 py-1 ${
+                          row.flow!.startsWith("314") || row.flow!.startsWith("+")
+                            ? "font-[var(--font-sora)] text-xs font-bold tracking-tight text-[#101114]"
+                            : "font-[var(--font-sora)] text-xs font-semibold text-[#0052FF]"
+                        }`}
+                      >
+                        {row.flow}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex w-[116px] shrink-0 flex-col items-center">
+                    <span
+                      className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                        row.closing
+                          ? "bg-[#0052FF] ring-4 ring-[#d6e4ff]"
+                          : "border-2 border-[#d6e4ff] bg-white"
+                      }`}
+                    >
+                      <Check
+                        className={`h-4 w-4 ${
+                          row.closing ? "text-white" : "text-[#0052FF]"
+                        }`}
+                        aria-hidden
+                        strokeWidth={3}
+                      />
+                    </span>
+                    <p className="mt-3 text-center font-[var(--font-sora)] text-sm font-semibold tracking-tight text-[#101114]">
+                      {row.step}
+                    </p>
+                    <p className="mt-1 text-center font-[var(--font-sora)] text-[11px] leading-tight text-[#918d85]">
+                      {row.detail}
+                    </p>
+                    <a
+                      href={`https://basescan.org/tx/${row.hash}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1.5 font-[var(--font-sora)] text-[10px] font-medium text-[#0052FF] underline-offset-2 hover:underline"
+                    >
+                      {row.hash.slice(0, 6)}…{row.hash.slice(-4)} ↗
+                    </a>
+                  </div>
+                </Fragment>
+              ))}
+            </div>
           </div>
-          <div className="border-t border-[#f0ede8] bg-[#fcfaf8] px-6 py-3">
-            <p className="font-mono text-[10px] leading-relaxed text-[#918d85]">
-              CirclaVault{" "}
-              <span className="text-[#0052FF]">
-                {isLive ? `${vault.slice(0, 10)}…${vault.slice(-6)}` : "0x1f4007…b67c"}
-              </span>{" "}
-              · AAPLc{" "}
-              0xb200000000000000000000C2e324d24d7eEcd1fb · Basescan-verified
-            </p>
-          </div>
+
+          <p className="mt-6 font-[var(--font-sora)] text-[11px] leading-relaxed text-[#918d85]">
+            Sep 9, 2026 · CirclaVault{" "}
+            <span className="font-semibold text-[#0052FF]">
+              {isLive
+                ? `${vault.slice(0, 10)}…${vault.slice(-6)}`
+                : "0x1f4007…b67c"}
+            </span>{" "}
+            · AAPLc 0xb200000000000000000000C2e324d24d7eEcd1fb ·
+            Basescan-verified
+          </p>
         </motion.div>
       </section>
 
@@ -628,23 +725,23 @@ export default function Landing() {
                 Send /contribute to fund it.
               </span>
             </BotMsg>
-            <YouMsg time="10:42">/contribute 50 USDC ✓</YouMsg>
+            <YouMsg time="10:42">/contribute 1 USDC ✓</YouMsg>
             <BotMsg time="10:42">
               Contribution received —{" "}
-              <span className="font-bold">50.00 tUSDC</span>
+              <span className="font-bold">1.00 USDC</span>
               <br />
-              Pool $50.00 · your claim 50.00 units.
+              Pool $1.00 · your claim 1.00 units.
             </BotMsg>
             <PeerMsg initial="M" name="Marcus" time="10:43">
-              /contribute 50 USDC ✓
+              ├─ funded — 1/1 USDC pooled ✓
             </PeerMsg>
             <BotMsg time="10:43">
-              2/2 funded — <span className="font-bold">$100 pooled.</span>{" "}
+              2/2 approve — <span className="font-bold">$1.00 pooled.</span>{" "}
               Propose a stock to buy.
             </BotMsg>
-            <YouMsg time="10:44">Buy 80 USDC of AAPLc</YouMsg>
+            <YouMsg time="10:44">Buy AAPLc</YouMsg>
             <BotMsg time="10:44">
-              <span className="font-bold">Proposal #1</span> — 80 USDC → ~0.25
+              <span className="font-bold">Proposal #1</span> — 1 USDC → ~314,425
               AAPLc via Aerodrome
               <br />
               Min 0.792 · expires 30m · needs 2 approvals
@@ -667,13 +764,13 @@ export default function Landing() {
             <BotMsg time="10:45">Quorum met 2/2 — executing…</BotMsg>
             <BotMsg time="10:46" highlight>
               <span className="font-bold">
-                Swap executed! 0.25 AAPLc @ $318
+Swap executed! 1 USDC → 314,425 AAPLc
               </span>
               <br />
               <span className="font-mono text-[11px] text-[#77736c]">
                 mainnet proof ·{" "}
                 <a
-                  href={vaultLink}
+                  href={`${EXPLORER}/tx/0x14b596f6bbe1a399d9d17d4b2c25214feb20923b65a5efb334bfd1f613cf71b3`}
                   target="_blank"
                   rel="noreferrer"
                   className="underline"
@@ -684,10 +781,10 @@ export default function Landing() {
               </span>
             </BotMsg>
             <BotMsg time="10:46">
-              Portfolio — Pool <span className="font-bold">$20.80</span> · 62%
-              AAPLc / 38% USDC
+              Portfolio — Pool <span className="font-bold">$1.00</span> ·
+              314,425 AAPLc / 0 USDC
               <br />
-              Your claim <span className="font-bold">$10.40</span> · pro-rata
+              Your claim <span className="font-bold">$1.00</span> · pro-rata
               units · Chainlink total-return
             </BotMsg>
           </div>
@@ -735,10 +832,7 @@ export default function Landing() {
         </div>
       </motion.section>
 
-      {/* 4. Workflow Diagram */}
-      <section id="loop" aria-label="Syndicate loop" className="mt-6">
-        <WorkflowDiagram />
-      </section>
+     
 
       {/* 6. CTA */}
       <section
