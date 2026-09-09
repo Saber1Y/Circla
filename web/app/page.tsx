@@ -28,7 +28,8 @@ const VAULT_RE = /^0x[a-fA-F0-9]{40}$/i;
 const DEFAULT_VAULT = "0x83f550601Cc9Fc4397216bc8E3422408C285A464";
 const TG_URL = process.env.NEXT_PUBLIC_TELEGRAM_URL || "https://t.me/circlabasebot";
 const TG_APP_URL = process.env.NEXT_PUBLIC_TELEGRAM_APP_URL || TG_URL;
-const LOOM_URL = process.env.NEXT_PUBLIC_LOOM_URL || "";
+const LOOM_URL =
+  process.env.NEXT_PUBLIC_LOOM_URL || "https://www.loom.com/embed/acc8d6011798427895ef7a2a9f996094";
 const EXPLORER = "https://basescan.org";
 
 function Avatar({ initial, bot }: { initial: string; bot?: boolean }) {
