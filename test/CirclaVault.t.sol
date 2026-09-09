@@ -116,9 +116,11 @@ contract MockSlipstreamRouter {
 contract CirclaVaultTest is Test {
     MockUSDC usdc;
     MockB20 stock;
+    MockB20 stock2;
     MockFeed feed;
     MockPolicyRegistry policies;
     MockSlipstreamRouter router;
+    MockSlipstreamRouter router2;
     CirclaAssetRegistry registry;
     CirclaVault vault;
     address alice = address(0xA11CE);
@@ -128,12 +130,16 @@ contract CirclaVaultTest is Test {
     function setUp() public {
         usdc = new MockUSDC();
         stock = new MockB20();
+        stock2 = new MockB20();
         feed = new MockFeed();
         policies = new MockPolicyRegistry();
         router = new MockSlipstreamRouter(usdc, stock);
+        router2 = new MockSlipstreamRouter(usdc, stock2);
         registry = new CirclaAssetRegistry(address(this));
         registry.configureAsset(address(stock), address(feed), 6, 10, 1_000e6, true);
+        registry.configureAsset(address(stock2), address(feed), 6, 10, 1_000e6, true);
         registry.setRouter(address(router), true);
+        registry.setRouter(address(router2), true);
         vault = new CirclaVault(
             address(this),
             address(usdc),
@@ -149,6 +155,7 @@ contract CirclaVaultTest is Test {
         usdc.mint(alice, 100e6);
         usdc.mint(bob, 100e6);
         stock.mint(address(router), 10e6);
+        stock2.mint(address(router2), 10e6);
         vm.prank(alice);
         vault.join();
         vm.prank(bob);
@@ -196,6 +203,41 @@ contract CirclaVaultTest is Test {
 
         assertEq(vault.adjustedAssetBalance(), 2e6);
         assertEq(vault.poolValue(), 100e6);
+    }
+
+    function testVaultSwitchesStockAfterFirstPurchase() public {
+        _deposit(alice, 50e6);
+        _deposit(bob, 50e6);
+
+        // First stock purchase.
+        vm.prank(alice);
+        uint256 proposalId = vault.createProposal(address(stock), address(router), 50e6, 1e6);
+        vm.prank(alice);
+        vault.vote(proposalId, true);
+        vm.prank(bob);
+        vault.vote(proposalId, true);
+        router.setOutput(1e6);
+        vm.prank(alice);
+        vault.executeProposal(address(router), proposalId, 10);
+
+        // Switching to a second stock is legal: the basket grows, nothing reverts.
+        vm.prank(bob);
+        uint256 proposalId2 = vault.createProposal(address(stock2), address(router2), 40e6, 1e6);
+        vm.prank(alice);
+        vault.vote(proposalId2, true);
+        vm.prank(bob);
+        vault.vote(proposalId2, true);
+        router2.setOutput(2e6);
+        vm.prank(alice);
+        vault.executeProposal(address(router2), proposalId2, 10);
+
+        assertEq(vault.heldAssets().length, 2);
+        assertEq(stock.balanceOf(address(vault)), 1e6);
+        assertEq(stock2.balanceOf(address(vault)), 2e6);
+        // 10e6 USDC left + 1e6 * $100 + 2e6 * $100 = 10e6 + 100e6 + 200e6.
+        assertEq(vault.poolValue(), 310e6);
+        // Both assets price into the pro-rata claim.
+        assertEq(vault.memberUnits(alice), vault.memberUnits(bob));
     }
 
     function testWithdrawalChecksB20ReceiverPolicy() public {

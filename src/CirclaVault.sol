@@ -32,8 +32,14 @@ contract CirclaVault is Ownable, ReentrancyGuard {
     uint256 public immutable perTradeLimit;
     uint256 public immutable proposalTTL;
 
+    // The vault can hold any number of registry-enabled B20 assets. portfolioAsset
+    // is kept as the primary (first purchased) for display compatibility; the
+    // full basket lives in heldAssets. Switching stocks is legal after purchase.
     address public portfolioAsset;
     address public portfolioFeed;
+    address[] private _heldAssets;
+    mapping(address asset => address feed) public _heldAssetFeed;
+    mapping(address asset => bool) public _isHeldAsset;
     uint256 public totalUnits;
     uint256 public proposalCount;
     bool public circleOpen = true;
@@ -218,26 +224,38 @@ contract CirclaVault is Ownable, ReentrancyGuard {
         if (tickSpacing != registry.getAsset(proposal.asset).tickSpacing) revert InvalidTickSpacing();
         proposal.executed = true;
         usdc.forceApprove(router, proposal.amountIn);
-        amountOut = ISlipstreamRouterLike(router).exactInputSingle(
-            ISlipstreamRouterLike.ExactInputSingleParams({
-                tokenIn: address(usdc),
-                tokenOut: proposal.asset,
-                tickSpacing: tickSpacing,
-                recipient: address(this),
-                deadline: proposal.deadline,
-                amountIn: proposal.amountIn,
-                amountOutMinimum: proposal.minAmountOut,
-                sqrtPriceLimitX96: 0
-            })
-        );
+        amountOut = ISlipstreamRouterLike(router)
+            .exactInputSingle(
+                ISlipstreamRouterLike.ExactInputSingleParams({
+                    tokenIn: address(usdc),
+                    tokenOut: proposal.asset,
+                    tickSpacing: tickSpacing,
+                    recipient: address(this),
+                    deadline: proposal.deadline,
+                    amountIn: proposal.amountIn,
+                    amountOutMinimum: proposal.minAmountOut,
+                    sqrtPriceLimitX96: 0
+                })
+            );
         usdc.forceApprove(router, 0);
-        if (portfolioAsset == address(0)) {
-            portfolioAsset = proposal.asset;
-            portfolioFeed = registry.getAsset(proposal.asset).priceFeed;
-        } else if (portfolioAsset != proposal.asset) {
-            revert InvalidProposal();
-        }
+        _registerHeldAsset(proposal.asset);
         emit ProposalExecuted(proposalId, router, proposal.amountIn, amountOut);
+    }
+
+    /// @notice Add an asset to the portfolio basket, pricing it via the registry.
+    function _registerHeldAsset(address asset) internal {
+        if (_isHeldAsset[asset]) return;
+        _isHeldAsset[asset] = true;
+        _heldAssets.push(asset);
+        _heldAssetFeed[asset] = registry.getAsset(asset).priceFeed;
+        if (portfolioAsset == address(0)) {
+            portfolioAsset = asset;
+            portfolioFeed = _heldAssetFeed[asset];
+        }
+    }
+
+    function heldAssets() external view returns (address[] memory) {
+        return _heldAssets;
     }
 
     function setSettlementPaused(bool paused) external onlyOwner {
@@ -247,8 +265,10 @@ contract CirclaVault is Ownable, ReentrancyGuard {
 
     function poolValue() public view returns (uint256) {
         uint256 value = usdc.balanceOf(address(this));
-        if (portfolioAsset != address(0)) {
-            value += _assetValue(portfolioAsset, portfolioFeed, IB20Like(portfolioAsset).balanceOf(address(this)));
+        uint256 len = _heldAssets.length;
+        for (uint256 i = 0; i < len; i++) {
+            address asset = _heldAssets[i];
+            value += _assetValue(asset, _heldAssetFeed[asset], IB20Like(asset).balanceOf(address(this)));
         }
         return value;
     }
@@ -260,7 +280,12 @@ contract CirclaVault is Ownable, ReentrancyGuard {
 
     function adjustedAssetBalance() external view returns (uint256) {
         if (portfolioAsset == address(0)) return 0;
-        return IB20Like(portfolioAsset).scaledBalanceOf(address(this));
+        uint256 total;
+        uint256 len = _heldAssets.length;
+        for (uint256 i = 0; i < len; i++) {
+            total += IB20Like(_heldAssets[i]).scaledBalanceOf(address(this));
+        }
+        return total;
     }
 
     function withdraw(uint256 units, address recipient)
@@ -271,15 +296,18 @@ contract CirclaVault is Ownable, ReentrancyGuard {
     {
         if (recipient == address(0)) revert InvalidRecipient();
         if (units == 0 || units > memberUnits[msg.sender]) revert InsufficientClaim();
-        if (portfolioAsset != address(0)) {
-            uint64 policy = IB20Like(portfolioAsset).policyId(TRANSFER_RECEIVER_POLICY);
+        uint256 len = _heldAssets.length;
+        for (uint256 i = 0; i < len; i++) {
+            address asset = _heldAssets[i];
+            uint64 policy = IB20Like(asset).policyId(TRANSFER_RECEIVER_POLICY);
             if (!policyRegistry.isAuthorized(policy, recipient)) revert UnauthorizedRecipient();
-            assetAmount = IB20Like(portfolioAsset).balanceOf(address(this)) * units / totalUnits;
+            uint256 share = IB20Like(asset).balanceOf(address(this)) * units / totalUnits;
+            assetAmount += share;
+            if (share > 0) IERC20(asset).safeTransfer(recipient, share);
         }
         usdcAmount = usdc.balanceOf(address(this)) * units / totalUnits;
         memberUnits[msg.sender] -= units;
         totalUnits -= units;
-        if (assetAmount > 0) IERC20(portfolioAsset).safeTransfer(recipient, assetAmount);
         if (usdcAmount > 0) usdc.safeTransfer(recipient, usdcAmount);
         emit Withdrawal(msg.sender, recipient, units, usdcAmount, assetAmount);
     }
@@ -292,33 +320,47 @@ contract CirclaVault is Ownable, ReentrancyGuard {
     {
         if (recipient == address(0)) revert InvalidRecipient();
         if (units == 0 || units > memberUnits[msg.sender]) revert InsufficientClaim();
-        if (portfolioAsset == address(0)) revert InvalidProposal();
-        uint64 policy = IB20Like(portfolioAsset).policyId(TRANSFER_RECEIVER_POLICY);
-        if (policyRegistry.isAuthorized(policy, recipient)) revert RecipientIsAuthorized();
+        if (_heldAssets.length == 0) revert InvalidProposal();
+        uint256 len = _heldAssets.length;
+        for (uint256 i = 0; i < len; i++) {
+            address asset = _heldAssets[i];
+            uint64 policy = IB20Like(asset).policyId(TRANSFER_RECEIVER_POLICY);
+            if (policyRegistry.isAuthorized(policy, recipient)) revert RecipientIsAuthorized();
+        }
         if (!registry.approvedRouters(router)) revert InvalidProposal();
 
-        uint256 assetAmount = IB20Like(portfolioAsset).balanceOf(address(this)) * units / totalUnits;
-        uint256 reservedUsdc = usdc.balanceOf(address(this)) * units / totalUnits;
+        uint256 originalTotal = totalUnits;
+        uint256 reservedUsdc = usdc.balanceOf(address(this)) * units / originalTotal;
         memberUnits[msg.sender] -= units;
         totalUnits -= units;
 
-        IERC20(portfolioAsset).forceApprove(router, assetAmount);
-        uint256 liquidatedUsdc = ISlipstreamRouterLike(router).exactInputSingle(
-            ISlipstreamRouterLike.ExactInputSingleParams({
-                tokenIn: portfolioAsset,
-                tokenOut: address(usdc),
-                tickSpacing: registry.getAsset(portfolioAsset).tickSpacing,
-                recipient: address(this),
-                deadline: block.timestamp,
-                amountIn: assetAmount,
-                amountOutMinimum: minAmountOut,
-                sqrtPriceLimitX96: 0
-            })
-        );
-        IERC20(portfolioAsset).forceApprove(router, 0);
+        uint256 liquidatedUsdc;
+        uint256 liquidatedAssets;
+        for (uint256 i = 0; i < len; i++) {
+            address asset = _heldAssets[i];
+            uint256 share = IB20Like(asset).balanceOf(address(this)) * units / originalTotal;
+            if (share == 0) continue;
+            liquidatedAssets += share;
+            IERC20(asset).forceApprove(router, share);
+            liquidatedUsdc += ISlipstreamRouterLike(router)
+                .exactInputSingle(
+                    ISlipstreamRouterLike.ExactInputSingleParams({
+                        tokenIn: asset,
+                        tokenOut: address(usdc),
+                        tickSpacing: registry.getAsset(asset).tickSpacing,
+                        recipient: address(this),
+                        deadline: block.timestamp,
+                        amountIn: share,
+                        amountOutMinimum: 0,
+                        sqrtPriceLimitX96: 0
+                    })
+                );
+            IERC20(asset).forceApprove(router, 0);
+        }
         totalUsdc = reservedUsdc + liquidatedUsdc;
+        if (totalUsdc < minAmountOut) revert InvalidProposal();
         usdc.safeTransfer(recipient, totalUsdc);
-        emit LiquidationWithdrawal(msg.sender, recipient, units, reservedUsdc, liquidatedUsdc, assetAmount, router);
+        emit LiquidationWithdrawal(msg.sender, recipient, units, reservedUsdc, liquidatedUsdc, liquidatedAssets, router);
     }
 
     function members() external view returns (address[] memory) {

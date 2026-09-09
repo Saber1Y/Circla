@@ -360,7 +360,8 @@ export default function AppPage() {
               usdcAllowance={usdcAllowance.data as bigint | undefined}
               asset={portfolioCfg}
               stocks={enabledStocks}
-              lockedToken={portfolio || undefined}
+              poolValue={poolValueRes?.result as bigint | undefined}
+              totalUnits={totalUnitsRes?.result as bigint | undefined}
               deposit={deposit}
               propose={propose}
               slippage={slippage}
@@ -840,7 +841,8 @@ function ActionsView({
   usdcAllowance,
   asset,
   stocks,
-  lockedToken,
+  poolValue,
+  totalUnits,
   deposit,
   propose,
   slippage,
@@ -858,7 +860,8 @@ function ActionsView({
   usdcAllowance?: bigint;
   asset?: AssetConfigTuple;
   stocks: { meta: StockMeta; cfg: AssetConfigTuple }[];
-  lockedToken?: string;
+  poolValue?: bigint;
+  totalUnits?: bigint;
   deposit: string;
   propose: string;
   slippage: string;
@@ -887,7 +890,6 @@ function ActionsView({
             slippage={slippage}
             setSlippage={setSlippage}
             stocks={stocks}
-            lockedToken={lockedToken}
             vault={vault}
             onSuccess={onSuccess}
           />
@@ -896,6 +898,8 @@ function ActionsView({
           )}
           <WithdrawCard
             myUnits={myUnits}
+            poolValue={poolValue}
+            totalUnits={totalUnits}
             asset={asset}
             address={address ?? ""}
             vault={vault}
@@ -1062,7 +1066,6 @@ function ProposeCard({
   slippage,
   setSlippage,
   stocks,
-  lockedToken,
   vault,
   onSuccess,
 }: {
@@ -1071,7 +1074,6 @@ function ProposeCard({
   slippage: string;
   setSlippage: (v: string) => void;
   stocks: { meta: StockMeta; cfg: AssetConfigTuple }[];
-  lockedToken?: string;
   vault?: `0x${string}`;
   onSuccess: () => void;
 }) {
@@ -1079,15 +1081,11 @@ function ProposeCard({
   const [txHash, setTxHash] = useState<string | null>(null);
   const tx = useWaitForTransactionReceipt({ hash: txHash as `0x${string}` | undefined });
 
-  // Registry-driven stock selection. A vault locks onto its first purchased
-  // asset (portfolioAsset) — once locked, proposals must target the same
-  // stock, mirroring the onchain InvalidProposal guard.
+  // Registry-driven stock selection. Every enabled stock is selectable — the
+  // vault legitimately holds a multi-asset basket, so the UI never pins the
+  // selector to a previously purchased stock.
   const [picked, setPicked] = useState<string | null>(null);
-  const lockedStock = stocks.find(
-    (s) => s.meta.token.toLowerCase() === (lockedToken ?? "").toLowerCase(),
-  );
-  const selectable = lockedStock ? [lockedStock] : stocks;
-  const selected = selectable.find((s) => s.meta.symbol === picked) ?? selectable[0];
+  const selected = stocks.find((s) => s.meta.symbol === picked) ?? stocks[0];
   const asset = selected?.cfg;
 
   const feed = asset?.[1] as `0x${string}` | undefined;
@@ -1150,9 +1148,9 @@ function ProposeCard({
 
   return (
     <Card title="Propose a buy" icon={<Vote size={15} />}>
-      {selectable.length > 0 && (
+      {stocks.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1.5">
-          {selectable.map((s) => (
+          {stocks.map((s) => (
             <button
               key={s.meta.token}
               onClick={() => setPicked(s.meta.symbol)}
@@ -1166,11 +1164,6 @@ function ProposeCard({
             </button>
           ))}
         </div>
-      )}
-      {lockedStock && (
-        <p className="mb-2 text-[11px] text-[#57534e]">
-          This circle already holds {lockedStock.meta.symbol} — proposals must target the same asset.
-        </p>
       )}
       <div className="grid grid-cols-2 gap-2">
         <div>
@@ -1301,12 +1294,16 @@ function ProposalCard({
 
 function WithdrawCard({
   myUnits,
+  poolValue,
+  totalUnits,
   asset,
   address,
   vault,
   onSuccess,
 }: {
   myUnits?: bigint;
+  poolValue?: bigint;
+  totalUnits?: bigint;
   asset?: [string, string, number, number, bigint, boolean];
   address: string;
   vault?: `0x${string}`;
@@ -1343,13 +1340,11 @@ function WithdrawCard({
         });
         setTxHash(h);
       } else {
-        const answer = quote.data ? (BigInt((quote.data as readonly unknown[])[1] as bigint)) : undefined;
-        const tokenDp = asset?.[2] ?? 8;
-        const feedDp = 8;
+        // Member share of the full basket (all held assets + USDC), 5% slippage guard.
         let minAmountOut = 0n;
-        if (answer && answer > 0n) {
-          minAmountOut = (units * BigInt(10 ** (tokenDp + feedDp)) / 1_000_000n * answer) / BigInt(10 ** feedDp);
-          minAmountOut = (minAmountOut * 950n) / 1000n; // 5% slippage guard
+        if (poolValue && totalUnits && totalUnits > 0n) {
+          minAmountOut = (poolValue * (myUnits ?? 0n)) / totalUnits;
+          minAmountOut = (minAmountOut * 950n) / 1000n;
         }
         const h = await writeContractAsync({
           address: vault,
