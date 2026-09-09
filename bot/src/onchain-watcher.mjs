@@ -2,7 +2,7 @@ import { createPublicClient, http, parseAbi } from 'viem';
 import { base } from 'viem/chains';
 import { getAddress } from 'viem';
 import { formatUnits } from 'viem';
-import { LOG_SCAN_CHUNK } from './base-client.mjs';
+import { LOG_SCAN_CHUNK, getLogsResilient } from './base-client.mjs';
 
 const vaultAbi = parseAbi([
   'event MemberJoined(address indexed member)',
@@ -65,14 +65,14 @@ export async function pollVaultEvents({ client, vault, lastBlock = undefined, ev
   const from = lastBlock === undefined ? current - 1n : BigInt(lastBlock) + 1n;
   if (from > current) return { events: [], lastBlock: current };
 
-  // Public mainnet.base.org caps eth_getLogs around 2-3k blocks, so chunk
-  // the scan (larger ranges return 413).
+  // Public mainnet.base.org caps eth_getLogs around 2-3k blocks and throttles
+  // bursts, so chunk the scan with retry/backoff (larger ranges return 413).
   const MAX_RANGE = LOG_SCAN_CHUNK;
   const raw = [];
   let cursor = from;
   while (cursor <= current) {
     const end = cursor + MAX_RANGE > current ? current : cursor + MAX_RANGE;
-    const chunk = await client.getLogs({
+    const chunk = await getLogsResilient(client, {
       address: vault,
       events: vaultAbi,
       fromBlock: cursor,

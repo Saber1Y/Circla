@@ -27,8 +27,28 @@ export const LOG_SCAN_CHUNK = 2_000n;
 // contribution events, indexed for /members
 const contributionEvent = parseAbi(['event ContributionReceived(address indexed member, uint256 amount, uint256 units)']);
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Public mainnet.base.org throttles shared IPs and may transiently reject
+// ranged eth_getLogs (413/429/5xx). Retry with exponential backoff so a
+// single burst doesn't fail an entire command or watcher poll.
+export async function getLogsResilient(client, params, { maxRetries = 4, baseDelayMs = 600, chunk = LOG_SCAN_CHUNK } = {}) {
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await client.getLogs(params);
+    } catch (error) {
+      lastError = error;
+      if (attempt === maxRetries) throw error;
+      const wait = baseDelayMs * 2 ** attempt + Math.floor(Math.random() * 150);
+      await sleep(wait);
+    }
+  }
+  throw lastError;
+}
+
 export function createBaseClient({rpcUrl = process.env.BASE_RPC_URL ?? 'https://mainnet.base.org'} = {}) {
-  return createPublicClient({chain: base, transport: http(rpcUrl)});
+  return createPublicClient({chain: base, transport: http(rpcUrl, {retryCount: 3, timeout: 15_000})});
 }
 
 export async function readVaultSnapshot(client, vaultAddress) {
@@ -122,14 +142,27 @@ export async function readMemberShares(client, vaultAddress) {
 // Scanned in LOG_SCAN_CHUNK-sized chunks (public Base RPC caps eth_getLogs
 // payloads around 2-3k blocks), then deduped - mirrors pollVaultEvents so
 // /members works for older vaults too.
-export async function readContributionTotals(client, vaultAddress) {
+// Lifetime USDC each member deposited, from ContributionReceived logs.
+// Scanned in LOG_SCAN_CHUNK-sized chunks (public Base RPC caps eth_getLogs
+// payloads around 2-3k blocks), then deduped - mirrors pollVaultEvents so
+// /members works for older vaults too. Heavy scans are cached briefly so a
+// burst of /members calls doesn't re-scan the vault's entire history.
+const contributionTotalsCache = new Map();
+export function invalidateContributionTotals(vaultAddress) {
+  contributionTotalsCache.delete(String(vaultAddress).toLowerCase());
+}
+
+// Recompute lifetime contribution totals now (ignoring TTL) and store into the
+// cache. Used to pre-warm in the background so a /members right after a fresh
+// contribution never hits a slow genesis scan on camera.
+export async function refreshContributionTotals(client, vaultAddress) {
   const current = await client.getBlockNumber();
   const MAX_RANGE = LOG_SCAN_CHUNK;
   const totals = new Map();
   let cursor = VAULT_DEPLOY_BLOCK;
   while (cursor <= current) {
     const end = cursor + MAX_RANGE > current ? current : cursor + MAX_RANGE;
-    const chunk = await client.getLogs({
+    const chunk = await getLogsResilient(client, {
       address: vaultAddress,
       event: contributionEvent[0],
       fromBlock: cursor,
@@ -145,7 +178,16 @@ export async function readContributionTotals(client, vaultAddress) {
     }
     cursor = end + 1n;
   }
+  contributionTotalsCache.set(String(vaultAddress).toLowerCase(), { at: Date.now(), totals });
   return totals;
+}
+
+export async function readContributionTotals(client, vaultAddress, { ttlMs = 30_000 } = {}) {
+  const cached = contributionTotalsCache.get(String(vaultAddress).toLowerCase());
+  if (cached && Date.now() - cached.at < ttlMs) return new Map(cached.totals);
+  await refreshContributionTotals(client, vaultAddress);
+  const totals = contributionTotalsCache.get(String(vaultAddress).toLowerCase()).totals;
+  return new Map(totals);
 }
 
 // Tradable stocks = catalog entries enabled in the vault's onchain asset

@@ -4,7 +4,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createBaseClient, readVaultSnapshot, readProposal, readMemberShares, readContributionTotals, readEnabledStocks } from './base-client.mjs';
+import { createBaseClient, readVaultSnapshot, readProposal, readMemberShares, readContributionTotals, readEnabledStocks, invalidateContributionTotals, refreshContributionTotals } from './base-client.mjs';
 import { buildProposalPreview } from './proposal-service.mjs';
 import { parseIntent } from './intent-parser.mjs';
 import { formatSwapReceipt, formatContribution, formatStockList } from './receipts.mjs';
@@ -339,6 +339,12 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
         const { events, lastBlock: next } = await pollVaultEvents({ client: watcher.client, vault: circle.vault, lastBlock });
         lastBlock = next;
         if (events.length === 0) return;
+        // A fresh contribution changed member totals - warm the /members cache
+        // in the background so the next /members is instant, not a slow scan.
+        if (events.some((e) => e.eventName === 'ContributionReceived')) {
+          invalidateContributionTotals(circle.vault);
+          refreshContributionTotals(watcher.client, circle.vault).catch(() => {});
+        }
         const q = await readQuorum(client, circle.vault);
         const labelled = { ...q, name: circle.title || q.name };
         for (const e of events) {
@@ -379,6 +385,7 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
     async restoreWatchers() {
       for (const circle of store.listCircles()) {
         await startWatcher(circle.chatId).catch(() => {});
+        refreshContributionTotals(client, circle.vault).catch(() => {});
       }
     },
     async launch(options) {
