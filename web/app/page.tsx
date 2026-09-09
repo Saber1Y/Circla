@@ -174,12 +174,6 @@ export default function Landing() {
             Proof
           </a>
           <a
-            href="#guardrails"
-            className="text-xs font-semibold text-[#77736c] hover:text-[#101114]"
-          >
-            Security
-          </a>
-          <a
             href={vaultLink}
             target="_blank"
             rel="noreferrer"
@@ -832,7 +826,7 @@ Swap executed! 1 USDC → 314,425 AAPLc
         </div>
       </motion.section>
 
-     
+     ye
 
       {/* 6. CTA */}
       <section
