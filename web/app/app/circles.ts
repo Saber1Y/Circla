@@ -4,6 +4,7 @@
 export const circleTitles: Record<string, string> = {
   "0x83f550601cc9fc4397216bc8e3422408c285a464": "Circla Test GC",
   "0x83f550601cc9fc4397216bc8e3422408c285a464": "CIrcla test",
+  "0x83f550601cc9fc4397216bc8e3422408c285a464": "Circlaaa test GC",
 };
 
 export function circleTitleFor(vault: `0x${string}` | undefined): string {
