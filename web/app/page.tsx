@@ -826,8 +826,6 @@ Swap executed! 1 USDC → 314,425 AAPLc
         </div>
       </motion.section>
 
-     ye
-
       {/* 6. CTA */}
       <section
         aria-label="Get started"
