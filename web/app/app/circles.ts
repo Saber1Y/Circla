@@ -2,7 +2,7 @@
 // Maps a lowercase vault address to the Telegram group title bound to it.
 // Do not edit by hand - the bot rewrites this file when a group binds.
 export const circleTitles: Record<string, string> = {
-  "0x83f550601cc9fc4397216bc8e3422408c285a464": "Circlaaa test GC",
+  "0x83f550601cc9fc4397216bc8e3422408c285a464": "Circla GC Test",
 };
 
 export function circleTitleFor(vault: `0x${string}` | undefined): string {
