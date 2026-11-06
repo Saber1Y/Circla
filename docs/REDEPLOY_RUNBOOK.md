@@ -3,8 +3,9 @@
 This runbook moves CIRCLA from the live vault `0x25Fcc446bBfb7444F0b9738423dD58713361010d` to a new vault built from the invite-only contract (invite list, execution price floor, USDC withdrawal for every recipient).
 Vaults are immutable, so the fixes only reach users through a new deployment and a repoint of the bot and the Mini App.
 
-Nothing in this runbook has been executed on mainnet.
-The deploy script and the steps marked "rehearsed" were run on a local Base mainnet fork on 2026-11-06.
+Progress on 2026-11-06: steps 2 and 3 are done.
+The new vault is `0x9353ccfACB7C53ce8a920A953E29F870000280ec`, deployed in tx `0xea973be840396d52a08a740fb108fbdf743d799ee5889744bc64734ffc33b5d9` at block 53844368, owned by `0x62f5…8784`, with no invites yet and not yet verified on Basescan.
+The repo is repointed to it (step 5); the remaining steps have not been run.
 
 ## State of the live vault (read on 2026-11-06)
 

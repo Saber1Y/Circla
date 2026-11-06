@@ -88,7 +88,7 @@ The first purchase sets the primary display asset; the valuation and withdrawal 
 | Contract | Role | Address |
 | --- | --- | --- |
 | CirclaAssetRegistry | B20 allowlist, feeds, tick spacings, approved routers | `0xA433d976740203bAE030339e68d6f7b261aCEABd` |
-| CirclaVault | Circle membership, deposits, proposals, votes, swaps, withdrawals (multi-asset basket) | `0x25Fcc446bBfb7444F0b9738423dD58713361010d` |
+| CirclaVault | Invite-only membership, deposits, proposals, votes, price-bounded swaps, withdrawals (multi-asset basket) | `0x9353ccfACB7C53ce8a920A953E29F870000280ec` |
 | USDC | Contribution / settlement currency | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
 | NVDAc | Tokenized stock (first governed purchase) | `0xb20000000000000000000078ee7ce2fE4908108C` |
 | CirclaPolicyRegistry (fee sole) | TRANSFER_RECEIVER_POLICY for stock receivers | `0x8453000000000000000000000000000000000002` |
@@ -154,9 +154,12 @@ A second, TestSprite-style controlled purchase proves basket support:
 the test vault `0x1f4007b917cd446ae7545ce4de6688d54f62b67c` enabled all 8 pool-backed stocks and executed a 1 USDC AAPLc buy (`0x14b596f6bbe1a399d9d17d4b2c25214feb20923b65a5efb334bfd1f613cf71b3`).
 It holds `314,425` AAPLc units after the swap.
 
-The multi-asset redeploy (`0x25Fcc446bBfb7444F0b9738423dD58713361010d`, tx `0x134d9d0dbbcc4000e82ea1c5ec69e8983e2faeb75098475412586de194156ef0`) is the active vault for the bot, Render, and landing page.
-It runs the basket bytecode so a circle can rotate between every registry-enabled stock, not just the first purchase.
-It starts empty: members rejoin and re-deposit on the new address.
+The multi-asset redeploy (`0x25Fcc446bBfb7444F0b9738423dD58713361010d`, tx `0x134d9d0dbbcc4000e82ea1c5ec69e8983e2faeb75098475412586de194156ef0`) added the basket bytecode so a circle can rotate between every registry-enabled stock.
+It is now retired in favour of the invite-only vault below, and its transactions stay here as history.
+
+The invite-only vault (`0x9353ccfACB7C53ce8a920A953E29F870000280ec`, tx `0xea973be840396d52a08a740fb108fbdf743d799ee5889744bc64734ffc33b5d9`, block 53844368) is the active vault for the bot, Render, and landing page.
+It adds invite-only joins, the 5% execution price floor, and USDC withdrawal for every recipient.
+It starts empty: the owner invites members, who join and deposit on the new address.
 
 ## Self-proving loop
 
@@ -206,14 +209,13 @@ Everything below is real and verified onchain or by tests unless it is explicitl
 | All 8 pool-backed stocks enabled | Real (registry config + AAPLc tx) |
 | Loom demo | Real but recorded against the single-asset vault; the basket UI change landed after recording |
 | Fresh mainnet vault running the multi-asset bytecode | Real (live vault holds a basket) |
-| Invite-only joins, execution price floor, USDC withdrawal for every recipient | Real in source (unit + fork tests); pending mainnet redeploy - see below |
+| Invite-only joins, execution price floor, USDC withdrawal for every recipient | Real (deployed on Base Mainnet; unit + fork tests) |
 | Full production deployment (factory, subsidies, fiat onramp) | Pending - beyond hackathon scope |
 
-Note on the deployed vault:
-the live mainnet vault runs the multi-asset bytecode but predates invite-only joins, the execution price floor, and the open USDC withdrawal path.
-On that vault `join()` is still open to any wallet until the owner calls `closeCircle()`.
-This repo contains the fixed contract and matching UI, covered by passing tests.
-Shipping it means deploying a new vault (immutable contracts, one vault per circle), which is a follow-up deploy rather than a change to the same address.
+Note on the deployed vaults:
+the active vault `0x9353ccfACB7C53ce8a920A953E29F870000280ec` runs the invite-only contract in this repo.
+The previous vault `0x25Fcc446bBfb7444F0b9738423dD58713361010d` predates invites and stays open to any wallet until its owner calls `closeCircle()`; it is no longer used by the bot or the Mini App.
+The redeploy steps live in `docs/REDEPLOY_RUNBOOK.md`.
 
 ## API surface
 
