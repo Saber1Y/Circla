@@ -3,9 +3,11 @@
 This runbook moves CIRCLA from the live vault `0x25Fcc446bBfb7444F0b9738423dD58713361010d` to a new vault built from the invite-only contract (invite list, execution price floor, USDC withdrawal for every recipient).
 Vaults are immutable, so the fixes only reach users through a new deployment and a repoint of the bot and the Mini App.
 
-Progress on 2026-11-06: steps 2 and 3 are done.
-The new vault is `0x9353ccfACB7C53ce8a920A953E29F870000280ec`, deployed in tx `0xea973be840396d52a08a740fb108fbdf743d799ee5889744bc64734ffc33b5d9` at block 53844368, owned by `0x62f5…8784`, with no invites yet and not yet verified on Basescan.
-The repo is repointed to it (step 5); the remaining steps have not been run.
+Progress on 2026-11-06: steps 1, 2, 3 and 5 are done, and step 4 is started.
+The new vault is `0x9353ccfACB7C53ce8a920A953E29F870000280ec`, deployed in tx `0xea973be840396d52a08a740fb108fbdf743d799ee5889744bc64734ffc33b5d9` at block 53844368, owned by `0x62f5…8784`, not yet verified on Basescan.
+The owner wallet was invited in tx `0x6c5940344f3ce47a0b9105131c70efbe50538c66af6b7d9712a3454fbd5f177c`.
+The old vault was closed to new joins in tx `0xd64c7901617b9220537f34e2edb5aca892f07d6951591864d89a08bfc4e764e4`.
+The repo is repointed to the new vault (step 5); merging, the Render check, the smoke test, and the old vault wind-down are still to do.
 
 ## State of the live vault (read on 2026-11-06)
 
