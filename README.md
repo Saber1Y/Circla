@@ -228,6 +228,15 @@ Everything is a public view or a governed write:
 The Telegram bot exposes the same surface as commands:
 `/help`, `/status`, `/portfolio`, `/members`, `/votes`, `/propose buy <amount> <stock>`, `/withdraw`.
 
+Joining a circle from the group chat:
+
+1. A member sends `/invite <wallet>` in the group.
+   The bot replies with where that wallet stands and, if it needs an invite, asks the circle owner to add it.
+2. The owner opens the Mini App, goes to Actions, and invites the wallet from the Circle membership card.
+3. The bot posts the confirmed invite in the group, and the member opens the Mini App and taps Join circle.
+
+The owner can also revoke an invite or close joining for good from the same card.
+
 The exact command grammar for a purchase is `/propose buy 0.9 NVDA` (parser requires the `buy` keyword).
 
 ## Tech stack
