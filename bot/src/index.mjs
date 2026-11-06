@@ -10,6 +10,7 @@ const bot = createCirclaBot({
 const port = Number(process.env.PORT || 8080);
 const webhookUrl = process.env.CIRCLA_WEBHOOK_URL;
 const webhookSecret = process.env.CIRCLA_WEBHOOK_SECRET;
+let server;
 
 if (webhookUrl) {
   await bot.restoreWatchers();
@@ -19,7 +20,7 @@ if (webhookUrl) {
     path,
     secret_token: webhookSecret,
   });
-  const server = createServer((req, res) => {
+  server = createServer((req, res) => {
     if (req.url === '/healthz') {
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       res.end('ok');
@@ -28,11 +29,27 @@ if (webhookUrl) {
     handler(req, res);
   });
   server.listen(port);
-  console.log(`CIRCLA Telegram bot is running (webhook) on :${port} -> ${webhookUrl}${path}`);
+  // The path embeds the webhook secret, so only the public base URL is logged.
+  console.log(`CIRCLA Telegram bot is running (webhook) on :${port} -> ${webhookUrl}`);
 } else {
   await bot.launch();
   console.log('CIRCLA Telegram bot is running (long polling)');
 }
 
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+// Webhook mode never calls bot.launch(), so Telegraf's bot.stop() would throw
+// "Bot is not running!"; close our own HTTP server instead. The vault watchers
+// run on intervals that keep the process alive, so exit explicitly.
+function shutdown(signal) {
+  console.log(`CIRCLA Telegram bot stopping (${signal})`);
+  if (server) {
+    server.close(() => process.exit(0));
+    // Idle keep-alive connections can hold close() open; do not wait for them.
+    setTimeout(() => process.exit(0), 5000).unref();
+  } else {
+    bot.stop(signal);
+    process.exit(0);
+  }
+}
+
+process.once('SIGINT', () => shutdown('SIGINT'));
+process.once('SIGTERM', () => shutdown('SIGTERM'));
