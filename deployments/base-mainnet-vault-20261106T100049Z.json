@@ -1,0 +1,12 @@
+{
+  "network": "base-mainnet",
+  "chainId": 8453,
+  "vault": "0x9353ccfACB7C53ce8a920A953E29F870000280ec",
+  "deployTx": "0xea973be840396d52a08a740fb108fbdf743d799ee5889744bc64734ffc33b5d9",
+  "deployBlock": 53844368,
+  "transactions": [
+    "0xea973be840396d52a08a740fb108fbdf743d799ee5889744bc64734ffc33b5d9"
+  ],
+  "commit": "4029a8fa85fd68580284e61001bb8da38e664d5a",
+  "deployedAt": "2026-11-06T10:00:49Z"
+}
