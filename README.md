@@ -5,7 +5,7 @@ CIRCLA is a smart contract + Telegram bot vertical slice that lets a small circl
 Every step is onchain and Basescan-verifiable.
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
-![Tests](https://img.shields.io/badge/tests-12%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-19%20passing-brightgreen)
 ![TestSprite](https://img.shields.io/badge/TestSprite-verified-blue)
 ![Loop](https://img.shields.io/badge/loop-self--proving-blueviolet)
 ![Stack](https://img.shields.io/badge/stack-Foundry%20+%20Aerodrome%20+%20Telegram-orange)
@@ -103,21 +103,23 @@ Every promise in this README is backed by a transaction you can open on Basescan
 The loop is:
 
 1. A circle is a smart contract, not a chat consensus.
-   Two members join the vault (`join()`), each recorded onchain.
+   The owner invites wallets (`setInvites`), and only invited wallets can `join()`, each recorded onchain.
 2. Contributions mint pro-rata units.
    A 1 USDC deposit while the pool is empty mints `1e18` units; a second deposit at the same price mints the same units.
 3. A proposal is a struct, not a message.
    `createProposal(asset, router, amountIn, minAmountOut)` captures the route and slippage floor at creation time.
 4. Voting requires quorum and beats `no`.
    `executeProposal` refuses to run until `yesVotes >= quorum` and `yesVotes > noVotes`.
-5. Execution is allowlisted.
+5. Execution is allowlisted and price-bounded.
    The router must be approved in the registry and the tick spacing must match the asset config.
+   The stock received must be worth at least 95% of the USDC spent at feed price, whatever `minAmountOut` the proposer chose.
 6. The pool is priced from live Chainlink total-return feeds, not from a database.
    `poolValue()` sums USDC plus every held asset at feed price, and fails closed on stale prints.
 7. The pool is multi-asset.
    Proposing a different stock after the first purchase is legal; the basket grows, and valuation and withdrawals cover all of it.
 8. Withdrawal is policy-aware.
-   Recipients who clear the Coinbase receiver policy can take raw stock; everyone else is liquidated to USDC automatically.
+   Recipients who clear the Coinbase receiver policy for every held stock can take raw stock.
+   Any member can settle in USDC instead, so a recipient cleared for only part of the basket is never locked out.
 
 ## Scoring methodology
 
@@ -203,12 +205,14 @@ Everything below is real and verified onchain or by tests unless it is explicitl
 | Policy-aware withdrawal (Auto -> USDC, Raw stock) | Real (unit tests + Sepolia proof) |
 | All 8 pool-backed stocks enabled | Real (registry config + AAPLc tx) |
 | Loom demo | Real but recorded against the single-asset vault; the basket UI change landed after recording |
-| Fresh mainnet vault running the multi-asset bytecode | Pending (contract changed, redeploy required - see below) |
+| Fresh mainnet vault running the multi-asset bytecode | Real (live vault holds a basket) |
+| Invite-only joins, execution price floor, USDC withdrawal for every recipient | Real in source (unit + fork tests); pending mainnet redeploy - see below |
 | Full production deployment (factory, subsidies, fiat onramp) | Pending - beyond hackathon scope |
 
 Note on the deployed vault:
-the live mainnet vault runs the earlier single-asset bytecode, and the onchain proof reflects that build.
-This repo now contains the multi-asset contract and matching UI, both covered by passing tests.
+the live mainnet vault runs the multi-asset bytecode but predates invite-only joins, the execution price floor, and the open USDC withdrawal path.
+On that vault `join()` is still open to any wallet until the owner calls `closeCircle()`.
+This repo contains the fixed contract and matching UI, covered by passing tests.
 Shipping it means deploying a new vault (immutable contracts, one vault per circle), which is a follow-up deploy rather than a change to the same address.
 
 ## API surface
@@ -216,7 +220,7 @@ Shipping it means deploying a new vault (immutable contracts, one vault per circ
 The vault is the API.
 Everything is a public view or a governed write:
 
-- Member lifecycle: `join()`, `deposit(amount)`.
+- Member lifecycle: `setInvites(accounts, allowed)` (owner), `join()`, `deposit(amount)`.
 - Governance: `createProposal(asset, router, amountIn, minAmountOut)`, `vote(id, support)`, `executeProposal(router, id, tickSpacing)`.
 - Valuation: `poolValue()`, `memberClaim(member)`, `heldAssets()`, `adjustedAssetBalance()`.
 - Withdrawal: `withdraw(units, recipient)`, `withdrawAsUSDC(units, recipient, router, minAmountOut)`.
@@ -240,7 +244,7 @@ The exact command grammar for a purchase is `/propose buy 0.9 NVDA` (parser requ
 
 ```text
 /src            - CirclaAssetRegistry, CirclaVault, interfaces
-/test           - 12 unit tests + fork suite against the real router and live pools
+/test           - 19 unit tests + fork suite against the real router and live pools
 /script         - deploy + Sepolia proof scripts
 /bot            - Telegram bot (intent parser, proposal service, onchain client)
 /web            - landing page + Mini App (Next.js)
@@ -285,7 +289,7 @@ cd web && npm install && npm run dev
 
 ## Tests
 
-`test/CirclaVault.t.sol` (12 unit tests):
+`test/CirclaVault.t.sol` (19 unit tests):
 
 - Equal deposits mint equal units.
 - Governed purchase uses real B20 balance and feed value.
@@ -299,6 +303,10 @@ cd web && npm install && npm run dev
 - Friday close price survives the weekend.
 - Non-Friday stale price reverts (fail closed).
 - Friday price expires after 72 hours.
+- Uninvited wallets cannot join, only the owner can invite, and a revoked invite blocks joining.
+- Execution below the 95% feed-price floor reverts, and execution exactly at the floor succeeds.
+- A recipient cleared for only some held stocks can still withdraw as USDC.
+- A policy-cleared recipient may still choose USDC.
 
 `test/CirclaVault.fork.t.sol`:
 
