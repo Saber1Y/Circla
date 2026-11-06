@@ -20,6 +20,10 @@ contract CirclaVault is Ownable, ReentrancyGuard {
     // Chainlink 24/5 equity feeds hold Friday's close over the weekend.
     // A price frozen at a Friday update is market data, not a broken feed.
     uint256 public constant WEEKEND_PRICE_AGE = 72 hours;
+    // A governed buy may not deliver less than 95% of the USDC spent, valued at
+    // the feed price, whatever minAmountOut the proposer chose.
+    uint256 public constant MAX_EXECUTION_SLIPPAGE_BPS = 500;
+    uint256 private constant BPS = 10_000;
 
     IERC20 public immutable usdc;
     CirclaAssetRegistry public immutable registry;
@@ -47,6 +51,7 @@ contract CirclaVault is Ownable, ReentrancyGuard {
 
     address[] private _members;
     mapping(address member => bool) public isMember;
+    mapping(address account => bool) public invited;
     mapping(address member => uint256) public memberUnits;
     mapping(uint256 proposalId => Proposal) public proposals;
     mapping(uint256 proposalId => mapping(address member => bool)) public hasVoted;
@@ -66,6 +71,7 @@ contract CirclaVault is Ownable, ReentrancyGuard {
     }
 
     event MemberJoined(address indexed member);
+    event InviteChanged(address indexed account, bool invited);
     event ContributionReceived(address indexed member, uint256 amount, uint256 units);
     event CircleClosed();
     event ProposalCreated(
@@ -96,6 +102,7 @@ contract CirclaVault is Ownable, ReentrancyGuard {
     error FullCircle();
     error AlreadyMember();
     error NotMember();
+    error NotInvited();
     error InvalidQuorum();
     error InvalidProposal();
     error ProposalExpired();
@@ -107,7 +114,7 @@ contract CirclaVault is Ownable, ReentrancyGuard {
     error UnsafePrice();
     error InvalidTickSpacing();
     error InvalidRecipient();
-    error RecipientIsAuthorized();
+    error ExecutionPriceTooLow();
 
     modifier onlyMember() {
         if (!isMember[msg.sender]) revert NotMember();
@@ -141,11 +148,21 @@ contract CirclaVault is Ownable, ReentrancyGuard {
 
     function join() external nonReentrant {
         if (!circleOpen) revert CircleClosedError();
+        if (!invited[msg.sender]) revert NotInvited();
         if (isMember[msg.sender]) revert AlreadyMember();
         if (_members.length >= maxMembers) revert FullCircle();
         isMember[msg.sender] = true;
         _members.push(msg.sender);
         emit MemberJoined(msg.sender);
+    }
+
+    /// @notice Owner-managed allowlist of wallets that may join. Revoking an invite
+    /// does not remove an existing member; it only blocks a future join.
+    function setInvites(address[] calldata accounts, bool allowed) external onlyOwner {
+        for (uint256 i = 0; i < accounts.length; i++) {
+            invited[accounts[i]] = allowed;
+            emit InviteChanged(accounts[i], allowed);
+        }
     }
 
     function closeCircle() external onlyOwner {
@@ -238,6 +255,8 @@ contract CirclaVault is Ownable, ReentrancyGuard {
                 })
             );
         usdc.forceApprove(router, 0);
+        uint256 valueOut = _assetValue(proposal.asset, registry.getAsset(proposal.asset).priceFeed, amountOut);
+        if (valueOut * BPS < proposal.amountIn * (BPS - MAX_EXECUTION_SLIPPAGE_BPS)) revert ExecutionPriceTooLow();
         _registerHeldAsset(proposal.asset);
         emit ProposalExecuted(proposalId, router, proposal.amountIn, amountOut);
     }
@@ -321,13 +340,10 @@ contract CirclaVault is Ownable, ReentrancyGuard {
         if (recipient == address(0)) revert InvalidRecipient();
         if (units == 0 || units > memberUnits[msg.sender]) revert InsufficientClaim();
         if (_heldAssets.length == 0) revert InvalidProposal();
-        uint256 len = _heldAssets.length;
-        for (uint256 i = 0; i < len; i++) {
-            address asset = _heldAssets[i];
-            uint64 policy = IB20Like(asset).policyId(TRANSFER_RECEIVER_POLICY);
-            if (policyRegistry.isAuthorized(policy, recipient)) revert RecipientIsAuthorized();
-        }
         if (!registry.approvedRouters(router)) revert InvalidProposal();
+        // No receiver-policy check: settling in USDC is open to every member, so a
+        // recipient cleared for some held assets but not others is never locked out.
+        uint256 len = _heldAssets.length;
 
         uint256 originalTotal = totalUnits;
         uint256 reservedUsdc = usdc.balanceOf(address(this)) * units / originalTotal;

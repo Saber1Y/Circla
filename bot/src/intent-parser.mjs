@@ -5,7 +5,8 @@ export function parseIntent(input) {
   if (!text) return {type: 'unknown', raw: text, reason: 'empty message'};
 
   const normalized = text.replace(/\s+/g, ' ');
-  const command = normalized.match(/^\/(\w+)(?:\s+(.*))?$/);
+  // Telegram appends @botname to commands picked from the menu in groups.
+  const command = normalized.match(/^\/(\w+)(?:@\w+)?(?:\s+(.*))?$/);
   if (command) return parseCommand(command[1].toLowerCase(), command[2] ?? '', normalized);
 
   const purchase = normalized.match(/^buy\s+([0-9]+(?:\.[0-9]+)?)\s+USDC\s+of\s+([A-Za-z0-9]+)$/i);
@@ -35,7 +36,12 @@ function parseCommand(name, args, raw) {
   }
   if (name === 'propose') return parseProposal(args, raw);
   if (name === 'create') return {type: 'create_circle', name: args.trim(), raw};
-  if (name === 'invite') return {type: 'invite', raw};
+  if (name === 'invite') {
+    const wallet = args.trim();
+    if (!wallet) return {type: 'invite', wallet: undefined, raw};
+    if (!/^0x[a-fA-F0-9]{40}$/.test(wallet)) return {type: 'unknown', raw, reason: 'usage: /invite <wallet address>'};
+    return {type: 'invite', wallet, raw};
+  }
   return {type: 'unknown', raw, reason: `unknown command: ${name}`};
 }
 

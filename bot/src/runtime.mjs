@@ -11,6 +11,7 @@ import { formatSwapReceipt, formatContribution, formatStockList } from './receip
 import { createCircleStore } from './circle-store.mjs';
 import { createWatcher, pollVaultEvents, readQuorum, formatEvent } from './onchain-watcher.mjs';
 import { COINBASE_STOCKS } from './base-assets.mjs';
+import { readInviteStatus, formatInviteReply } from './invite-service.mjs';
 
 // Clickable Basescan links use MessageEntity/HTML parse mode; addresses and
 // tx hashes in replies become real links instead of dead hex text.
@@ -127,11 +128,12 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
     { command: 'status', description: 'Live vault snapshot' },
     { command: 'portfolio', description: 'Holdings + adjusted balance' },
     { command: 'members', description: 'Per-member deposits, units, share' },
+    { command: 'invite', description: 'Request or check an invite (invite <wallet>)' },
     { command: 'votes', description: 'Vote count for a proposal' },
     { command: 'propose', description: 'Preview a proposal (buy <USDC> <SYMBOL>)' },
     { command: 'deposit', description: 'Deposit via the Mini App' },
     { command: 'vote', description: 'Record your vote (yes|no)' },
-    { command: 'withdraw', description: 'Policy-aware exit' },
+    { command: 'withdraw', description: 'Exit as USDC or raw stock' },
     { command: 'watch', description: 'Stream onchain vault events here' },
     { command: 'help', description: 'List all commands' },
   ];
@@ -156,7 +158,7 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
 
   bot.help(async (ctx) => {
     await ctx.reply(
-      '/start_syndicate — bind this group to its vault + open the app\n/status — live vault snapshot\n/stocks — registry-enabled stocks you can buy\n/portfolio — holdings + adjusted balance\n/members — per-member deposits, units, and pool share\n/votes [id] — vote count for a proposal\n/propose buy <USDC> <SYMBOL> — proposal preview (list tradable symbols with /stocks)\n/contribute <USDC> — deposit via the Mini App\n/vote <yes|no> — record your vote in chat (sign onchain in the app)\n/withdraw — policy-aware exit',
+      '/start_syndicate — bind this group to its vault + open the app\n/status — live vault snapshot\n/stocks — registry-enabled stocks you can buy\n/portfolio — holdings + adjusted balance\n/members — per-member deposits, units, and pool share\n/invite <wallet> — request an invite, or check whether a wallet can join\n/votes [id] — vote count for a proposal\n/propose buy <USDC> <SYMBOL> — proposal preview (list tradable symbols with /stocks)\n/deposit <USDC> — deposit via the Mini App\n/vote <yes|no> — record your vote in chat (sign onchain in the app)\n/withdraw — exit as USDC or raw stock',
     );
   });
 
@@ -233,6 +235,39 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
     }
   });
 
+  bot.command('invite', async (ctx) => {
+    const intent = parseIntent(ctx.message.text);
+    if (intent.type !== 'invite') return ctx.reply(`Usage: /invite <wallet address>`);
+    if (!intent.wallet) {
+      return ctx.reply(
+        [
+          'To join this circle, send /invite followed by your wallet address, for example:',
+          '/invite 0x1234…abcd',
+          '',
+          'The bot checks whether that wallet can join. If the circle is invite-only, it asks the owner to invite it, and this chat is notified when the invite confirms.',
+        ].join('\n'),
+      );
+    }
+    const circle = boundCircle(ctx);
+    try {
+      const status = await readInviteStatus(client, circle.vault, intent.wallet);
+      const reply = formatInviteReply(status);
+      const button =
+        reply.action === 'invite'
+          ? appButton(ctx, 'Open invite panel', circle, `invite=${status.wallet}`)
+          : reply.action === 'join'
+            ? appButton(ctx, 'Open app to join', circle)
+            : null;
+      await ctx.reply(reply.text, {
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        ...(button ? Markup.inlineKeyboard([button]) : {}),
+      });
+    } catch (error) {
+      await ctx.reply(`Vault read unavailable: ${error.shortMessage ?? error.message}`);
+    }
+  });
+
   bot.command('votes', async (ctx) => {
     const arg = ctx.message.text.split(/\s+/)[1];
     const circle = boundCircle(ctx);
@@ -302,10 +337,10 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
 
   bot.command('withdraw', async (ctx) => {
     await ctx.reply(
-      ['Policy-aware exit:',
+      ['Two ways out:',
         '',
-        'If your wallet clears Coinbase TRANSFER_RECEIVER_POLICY, you withdraw raw NVDAc.',
-        'Otherwise the vault liquidates your share to USDC via Aerodrome automatically.',
+        'Auto → USDC: the vault sells your share of every held stock via Aerodrome and sends you USDC. Open to every member.',
+        'Raw stock: you receive your share of each stock directly, only if your wallet clears the Coinbase receiver policy for every stock the vault holds.',
       ].join('\n'),
       Markup.inlineKeyboard([appButton(ctx, 'Open CIRCLA app', boundCircle(ctx), 'view=withdraw')]),
     );
@@ -321,7 +356,7 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
   bot.on('text', async (ctx) => {
     if (ctx.message.text.startsWith('/')) return;
     if (/^buy\s+/i.test(ctx.message.text)) return handleProposal(ctx, ctx.message.text, boundCircle(ctx), appButton);
-    await ctx.reply('Try: Buy 100 USDC of NVDAc, /contribute 50, /start_syndicate, /status, or /portfolio.');
+    await ctx.reply('Try: Buy 100 USDC of NVDAc, /deposit 50, /start_syndicate, /status, or /portfolio.');
   });
 
   // ---- Onchain watcher: broadcast real vault events into the group ----

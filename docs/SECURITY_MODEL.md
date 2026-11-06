@@ -42,7 +42,9 @@ The vault enforces membership, proposals, voting, caps, allowlists, oracle condi
 - Router allowlist.
 - Per-proposal amount limit.
 - Per-circle spending limit.
+- Owner-managed invite list for joining.
 - Minimum output amount.
+- Oracle price floor on governed execution (at most 5% below feed value).
 - Proposal expiry.
 - Unique proposal nonce.
 - One vote per member.
@@ -100,6 +102,8 @@ The scope identifier is not itself the policy ID.
 The vault MUST call the Policy Registry with the token's configured policy ID and recipient address.
 
 An unauthorized B20 recipient MUST NOT receive a direct transfer.
+
+The USDC settlement path MUST stay open to every member, including recipients authorized for only part of the basket.
 
 The liquidation fallback MUST be independently guarded by router, output, and oracle checks.
 

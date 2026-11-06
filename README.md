@@ -5,7 +5,7 @@ CIRCLA is a smart contract + Telegram bot vertical slice that lets a small circl
 Every step is onchain and Basescan-verifiable.
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
-![Tests](https://img.shields.io/badge/tests-12%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-19%20passing-brightgreen)
 ![TestSprite](https://img.shields.io/badge/TestSprite-verified-blue)
 ![Loop](https://img.shields.io/badge/loop-self--proving-blueviolet)
 ![Stack](https://img.shields.io/badge/stack-Foundry%20+%20Aerodrome%20+%20Telegram-orange)
@@ -88,7 +88,7 @@ The first purchase sets the primary display asset; the valuation and withdrawal 
 | Contract | Role | Address |
 | --- | --- | --- |
 | CirclaAssetRegistry | B20 allowlist, feeds, tick spacings, approved routers | `0xA433d976740203bAE030339e68d6f7b261aCEABd` |
-| CirclaVault | Circle membership, deposits, proposals, votes, swaps, withdrawals (multi-asset basket) | `0x25Fcc446bBfb7444F0b9738423dD58713361010d` |
+| CirclaVault | Invite-only membership, deposits, proposals, votes, price-bounded swaps, withdrawals (multi-asset basket) | `0x9353ccfACB7C53ce8a920A953E29F870000280ec` |
 | USDC | Contribution / settlement currency | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
 | NVDAc | Tokenized stock (first governed purchase) | `0xb20000000000000000000078ee7ce2fE4908108C` |
 | CirclaPolicyRegistry (fee sole) | TRANSFER_RECEIVER_POLICY for stock receivers | `0x8453000000000000000000000000000000000002` |
@@ -103,21 +103,23 @@ Every promise in this README is backed by a transaction you can open on Basescan
 The loop is:
 
 1. A circle is a smart contract, not a chat consensus.
-   Two members join the vault (`join()`), each recorded onchain.
+   The owner invites wallets (`setInvites`), and only invited wallets can `join()`, each recorded onchain.
 2. Contributions mint pro-rata units.
    A 1 USDC deposit while the pool is empty mints `1e18` units; a second deposit at the same price mints the same units.
 3. A proposal is a struct, not a message.
    `createProposal(asset, router, amountIn, minAmountOut)` captures the route and slippage floor at creation time.
 4. Voting requires quorum and beats `no`.
    `executeProposal` refuses to run until `yesVotes >= quorum` and `yesVotes > noVotes`.
-5. Execution is allowlisted.
+5. Execution is allowlisted and price-bounded.
    The router must be approved in the registry and the tick spacing must match the asset config.
+   The stock received must be worth at least 95% of the USDC spent at feed price, whatever `minAmountOut` the proposer chose.
 6. The pool is priced from live Chainlink total-return feeds, not from a database.
    `poolValue()` sums USDC plus every held asset at feed price, and fails closed on stale prints.
 7. The pool is multi-asset.
    Proposing a different stock after the first purchase is legal; the basket grows, and valuation and withdrawals cover all of it.
 8. Withdrawal is policy-aware.
-   Recipients who clear the Coinbase receiver policy can take raw stock; everyone else is liquidated to USDC automatically.
+   Recipients who clear the Coinbase receiver policy for every held stock can take raw stock.
+   Any member can settle in USDC instead, so a recipient cleared for only part of the basket is never locked out.
 
 ## Scoring methodology
 
@@ -152,9 +154,12 @@ A second, TestSprite-style controlled purchase proves basket support:
 the test vault `0x1f4007b917cd446ae7545ce4de6688d54f62b67c` enabled all 8 pool-backed stocks and executed a 1 USDC AAPLc buy (`0x14b596f6bbe1a399d9d17d4b2c25214feb20923b65a5efb334bfd1f613cf71b3`).
 It holds `314,425` AAPLc units after the swap.
 
-The multi-asset redeploy (`0x25Fcc446bBfb7444F0b9738423dD58713361010d`, tx `0x134d9d0dbbcc4000e82ea1c5ec69e8983e2faeb75098475412586de194156ef0`) is the active vault for the bot, Render, and landing page.
-It runs the basket bytecode so a circle can rotate between every registry-enabled stock, not just the first purchase.
-It starts empty: members rejoin and re-deposit on the new address.
+The multi-asset redeploy (`0x25Fcc446bBfb7444F0b9738423dD58713361010d`, tx `0x134d9d0dbbcc4000e82ea1c5ec69e8983e2faeb75098475412586de194156ef0`) added the basket bytecode so a circle can rotate between every registry-enabled stock.
+It is now retired in favour of the invite-only vault below, and its transactions stay here as history.
+
+The invite-only vault (`0x9353ccfACB7C53ce8a920A953E29F870000280ec`, tx `0xea973be840396d52a08a740fb108fbdf743d799ee5889744bc64734ffc33b5d9`, block 53844368) is the active vault for the bot, Render, and landing page.
+It adds invite-only joins, the 5% execution price floor, and USDC withdrawal for every recipient.
+It starts empty: the owner invites members, who join and deposit on the new address.
 
 ## Self-proving loop
 
@@ -203,26 +208,36 @@ Everything below is real and verified onchain or by tests unless it is explicitl
 | Policy-aware withdrawal (Auto -> USDC, Raw stock) | Real (unit tests + Sepolia proof) |
 | All 8 pool-backed stocks enabled | Real (registry config + AAPLc tx) |
 | Loom demo | Real but recorded against the single-asset vault; the basket UI change landed after recording |
-| Fresh mainnet vault running the multi-asset bytecode | Pending (contract changed, redeploy required - see below) |
+| Fresh mainnet vault running the multi-asset bytecode | Real (live vault holds a basket) |
+| Invite-only joins, execution price floor, USDC withdrawal for every recipient | Real (deployed on Base Mainnet; unit + fork tests) |
 | Full production deployment (factory, subsidies, fiat onramp) | Pending - beyond hackathon scope |
 
-Note on the deployed vault:
-the live mainnet vault runs the earlier single-asset bytecode, and the onchain proof reflects that build.
-This repo now contains the multi-asset contract and matching UI, both covered by passing tests.
-Shipping it means deploying a new vault (immutable contracts, one vault per circle), which is a follow-up deploy rather than a change to the same address.
+Note on the deployed vaults:
+the active vault `0x9353ccfACB7C53ce8a920A953E29F870000280ec` runs the invite-only contract in this repo.
+The previous vault `0x25Fcc446bBfb7444F0b9738423dD58713361010d` predates invites and stays open to any wallet until its owner calls `closeCircle()`; it is no longer used by the bot or the Mini App.
+The redeploy steps live in `docs/REDEPLOY_RUNBOOK.md`.
 
 ## API surface
 
 The vault is the API.
 Everything is a public view or a governed write:
 
-- Member lifecycle: `join()`, `deposit(amount)`.
+- Member lifecycle: `setInvites(accounts, allowed)` (owner), `join()`, `deposit(amount)`.
 - Governance: `createProposal(asset, router, amountIn, minAmountOut)`, `vote(id, support)`, `executeProposal(router, id, tickSpacing)`.
 - Valuation: `poolValue()`, `memberClaim(member)`, `heldAssets()`, `adjustedAssetBalance()`.
 - Withdrawal: `withdraw(units, recipient)`, `withdrawAsUSDC(units, recipient, router, minAmountOut)`.
 
 The Telegram bot exposes the same surface as commands:
 `/help`, `/status`, `/portfolio`, `/members`, `/votes`, `/propose buy <amount> <stock>`, `/withdraw`.
+
+Joining a circle from the group chat:
+
+1. A member sends `/invite <wallet>` in the group.
+   The bot replies with where that wallet stands and, if it needs an invite, asks the circle owner to add it.
+2. The owner opens the Mini App, goes to Actions, and invites the wallet from the Circle membership card.
+3. The bot posts the confirmed invite in the group, and the member opens the Mini App and taps Join circle.
+
+The owner can also revoke an invite or close joining for good from the same card.
 
 The exact command grammar for a purchase is `/propose buy 0.9 NVDA` (parser requires the `buy` keyword).
 
@@ -240,7 +255,7 @@ The exact command grammar for a purchase is `/propose buy 0.9 NVDA` (parser requ
 
 ```text
 /src            - CirclaAssetRegistry, CirclaVault, interfaces
-/test           - 12 unit tests + fork suite against the real router and live pools
+/test           - 19 unit tests + fork suite against the real router and live pools
 /script         - deploy + Sepolia proof scripts
 /bot            - Telegram bot (intent parser, proposal service, onchain client)
 /web            - landing page + Mini App (Next.js)
@@ -285,7 +300,7 @@ cd web && npm install && npm run dev
 
 ## Tests
 
-`test/CirclaVault.t.sol` (12 unit tests):
+`test/CirclaVault.t.sol` (19 unit tests):
 
 - Equal deposits mint equal units.
 - Governed purchase uses real B20 balance and feed value.
@@ -299,6 +314,10 @@ cd web && npm install && npm run dev
 - Friday close price survives the weekend.
 - Non-Friday stale price reverts (fail closed).
 - Friday price expires after 72 hours.
+- Uninvited wallets cannot join, only the owner can invite, and a revoked invite blocks joining.
+- Execution below the 95% feed-price floor reverts, and execution exactly at the floor succeeds.
+- A recipient cleared for only some held stocks can still withdraw as USDC.
+- A policy-cleared recipient may still choose USDC.
 
 `test/CirclaVault.fork.t.sol`:
 

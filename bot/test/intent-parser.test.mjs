@@ -23,3 +23,17 @@ test('rejects malformed votes', () => {
 test('rejects unsupported asset syntax instead of guessing', () => {
   assert.equal(parseIntent('buy 50 of NVDAc').type, 'unknown');
 });
+
+test('parses /invite with and without a wallet', () => {
+  assert.deepEqual(parseIntent('/invite'), {type: 'invite', wallet: undefined, raw: '/invite'});
+  const intent = parseIntent('/invite 0x62f5a416c0077472822B3Ceb60bA2A6577D68784');
+  assert.equal(intent.type, 'invite');
+  assert.equal(intent.wallet, '0x62f5a416c0077472822B3Ceb60bA2A6577D68784');
+  assert.equal(parseIntent('/invite not-a-wallet').type, 'unknown');
+});
+
+test('accepts the @botname suffix Telegram adds in groups', () => {
+  assert.equal(parseIntent('/vote@circlabasebot yes').support, true);
+  assert.equal(parseIntent('/deposit@circlabasebot 25').amountUsdc, '25');
+  assert.equal(parseIntent('/invite@circlabasebot 0x62f5a416c0077472822B3Ceb60bA2A6577D68784').type, 'invite');
+});
