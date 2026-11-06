@@ -31,7 +31,7 @@ chain_id="$(cast chain-id --rpc-url "$RPC_URL")" || fail "cannot reach $RPC_URL"
 [ "$chain_id" = "8453" ] || fail "$RPC_URL is chain $chain_id, not Base mainnet (8453)"
 
 if [ -z "${DEPLOYER_PRIVATE_KEY:-}" ]; then
-  read -r -s -p "Deployer private key (input hidden): " DEPLOYER_PRIVATE_KEY
+  read -r -s -p "Deployer private key (input hidden): " DEPLOYER_PRIVATE_KEY || DEPLOYER_PRIVATE_KEY=""
   echo
 fi
 [ -n "$DEPLOYER_PRIVATE_KEY" ] || fail "no private key given"
