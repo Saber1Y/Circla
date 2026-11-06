@@ -6,6 +6,8 @@ import { LOG_SCAN_CHUNK, getLogsResilient } from './base-client.mjs';
 
 const vaultAbi = parseAbi([
   'event MemberJoined(address indexed member)',
+  'event InviteChanged(address indexed account, bool invited)',
+  'event CircleClosed()',
   'event ContributionReceived(address indexed member, uint256 amount, uint256 units)',
   'event ProposalCreated(uint256 indexed proposalId, address indexed proposer, address asset, uint256 amountIn, uint256 minAmountOut, uint256 deadline)',
   'event VoteCast(uint256 indexed proposalId, address indexed member, bool support)',
@@ -32,6 +34,12 @@ export function formatEvent(event, { quorum = 0, name = 'CIRCLA pool', proposal 
   switch (event.eventName) {
     case 'MemberJoined':
       return `👋 ${short(event.args.member)} joined ${name}`;
+    case 'InviteChanged':
+      return event.args.invited
+        ? `✉️ ${short(event.args.account)} was invited to ${name}. Open the app with that wallet and tap Join circle.`
+        : `${short(event.args.account)}'s invite to ${name} was revoked`;
+    case 'CircleClosed':
+      return `🔒 ${name} is now closed to new members`;
     case 'ContributionReceived':
       return `💰 ${short(event.args.member)} contributed ${formatUsdc(event.args.amount)} USDC (${formatUnits(event.args.units, 18)} units)`;
     case 'ProposalCreated':
