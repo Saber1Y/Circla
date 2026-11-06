@@ -1497,7 +1497,8 @@ function ProposeCard({
         Aerodrome router · tick {asset?.[3] ?? 60}
         {quoteUsd && quoteUsd > 0n ? (
           <span className="ml-auto font-semibold text-[#101114]">
-            ≈ {(amount / Number(quoteUsd)) * 10 ** (feedDp - tokenDp)} {selected?.meta.symbol ?? ""}
+            ≈ {((amount * 10 ** feedDp) / Number(quoteUsd)).toLocaleString(undefined, { maximumFractionDigits: 6 })}{" "}
+            {selected?.meta.symbol ?? ""}
           </span>
         ) : (
           <span className="ml-auto">quoting…</span>
