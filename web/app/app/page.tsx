@@ -879,7 +879,7 @@ function ActionsView({
   return (
     <div className="mx-4 mt-3 space-y-3 pb-4">
       {!isMember ? (
-        <JoinCard vault={vault} onSuccess={onSuccess} />
+        <JoinCard vault={vault} address={address} onSuccess={onSuccess} />
       ) : (
         <>
           <DepositCard
@@ -917,10 +917,28 @@ function ActionsView({
   );
 }
 
-function JoinCard({ vault, onSuccess }: { vault?: `0x${string}`; onSuccess: () => void }) {
+function JoinCard({
+  vault,
+  address,
+  onSuccess,
+}: {
+  vault?: `0x${string}`;
+  address?: string;
+  onSuccess: () => void;
+}) {
   const { writeContractAsync, isPending, error, data } = useWriteContract();
   const tx = useWaitForTransactionReceipt({ hash: data });
   const [status, setStatus] = useState<string | null>(null);
+  // Vaults deployed before invites existed have no invited() getter: the read
+  // fails and joining stays open, matching what that contract enforces.
+  const invite = useReadContract({
+    address: vault,
+    abi: vaultAbi as Abi,
+    functionName: "invited",
+    args: address ? [address as `0x${string}`] : undefined,
+    query: { enabled: Boolean(vault && address) },
+  });
+  const notInvited = invite.data === false;
 
   useEffect(() => {
     if (tx.isSuccess) onSuccess();
@@ -944,15 +962,23 @@ function JoinCard({ vault, onSuccess }: { vault?: `0x${string}`; onSuccess: () =
     <div className="rounded-3xl border border-[#e3dfd7] bg-white p-5">
       <h3 className="text-[17px] font-semibold tracking-[-0.01em]">Join the circle</h3>
       <p className="mt-1 text-[13px] text-[#57534e]">
-        Sign once to become a member. Voting and contributing unlock after joining.
+        {notInvited
+          ? "This circle is invite-only. Share your wallet address with the circle owner so they can invite it, then come back to join."
+          : "Sign once to become a member. Voting and contributing unlock after joining."}
       </p>
       <button
         onClick={join}
-        disabled={isPending || tx.isLoading}
+        disabled={notInvited || isPending || tx.isLoading}
         className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#101114] py-3 text-[14px] font-semibold text-white disabled:opacity-50"
       >
         {isPending || tx.isLoading ? <Loader2 size={15} className="animate-spin" /> : <Lock size={15} />}
-        {isPending ? "Confirming in wallet…" : tx.isLoading ? "Submitting…" : "Join circle"}
+        {notInvited
+          ? "Waiting for an invite"
+          : isPending
+            ? "Confirming in wallet…"
+            : tx.isLoading
+              ? "Submitting…"
+              : "Join circle"}
       </button>
       {error && <p className="mt-2 text-[12px] text-[#57534e]">{errMsg(error)}</p>}
       {status && <p className="mt-2 text-[12px] text-[#57534e]">{status}</p>}

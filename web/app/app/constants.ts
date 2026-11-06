@@ -18,6 +18,7 @@ export const vaultAbi = parseAbi([
   "function contributionTarget() view returns (uint256)",
   "function memberUnits(address) view returns (uint256)",
   "function isMember(address) view returns (bool)",
+  "function invited(address) view returns (bool)",
   "function proposals(uint256) view returns (address proposer, address asset, address router, uint256 amountIn, uint256 minAmountOut, uint256 deadline, uint256 nonce, uint256 yesVotes, uint256 noVotes, bool executed, bool cancelled)",
   "function hasVoted(uint256, address) view returns (bool)",
   "function join()",
