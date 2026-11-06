@@ -70,13 +70,18 @@ contract MockFeed {
 
 contract MockPolicyRegistry {
     mapping(address => bool) public authorized;
+    mapping(uint64 => mapping(address => bool)) public authorizedFor;
 
     function setAuthorized(address account, bool value) external {
         authorized[account] = value;
     }
 
-    function isAuthorized(uint64, address account) external view returns (bool) {
-        return authorized[account];
+    function setAuthorizedFor(uint64 policy, address account, bool value) external {
+        authorizedFor[policy][account] = value;
+    }
+
+    function isAuthorized(uint64 policy, address account) external view returns (bool) {
+        return authorized[account] || authorizedFor[policy][account];
     }
 }
 
@@ -100,16 +105,9 @@ contract MockSlipstreamRouter {
     {
         amountOut = output;
         require(amountOut >= params.amountOutMinimum, "minimum output");
-        if (params.tokenIn == address(usdc)) {
-            require(params.tokenOut == address(stock), "unexpected pair");
-            require(IERC20(address(usdc)).transferFrom(msg.sender, address(this), params.amountIn), "transferFrom failed");
-            require(IERC20(address(stock)).transfer(params.recipient, amountOut), "transfer failed");
-        } else {
-            require(params.tokenIn == address(stock), "unexpected pair");
-            require(params.tokenOut == address(usdc), "unexpected pair");
-            require(IERC20(address(stock)).transferFrom(msg.sender, address(this), params.amountIn), "transferFrom failed");
-            require(IERC20(address(usdc)).transfer(params.recipient, amountOut), "transfer failed");
-        }
+        require(params.tokenIn == address(usdc) || params.tokenOut == address(usdc), "unexpected pair");
+        require(IERC20(params.tokenIn).transferFrom(msg.sender, address(this), params.amountIn), "transferFrom failed");
+        require(IERC20(params.tokenOut).transfer(params.recipient, amountOut), "transfer failed");
     }
 }
 
@@ -126,6 +124,7 @@ contract CirclaVaultTest is Test {
     address alice = address(0xA11CE);
     address bob = address(0xB0B);
     address recipient = address(0xCAFE);
+    address mallory = address(0xBAD);
 
     function setUp() public {
         usdc = new MockUSDC();
@@ -156,6 +155,11 @@ contract CirclaVaultTest is Test {
         usdc.mint(bob, 100e6);
         stock.mint(address(router), 10e6);
         stock2.mint(address(router2), 10e6);
+        stock2.mint(address(router), 10e6);
+        address[] memory invites = new address[](2);
+        invites[0] = alice;
+        invites[1] = bob;
+        vault.setInvites(invites, true);
         vm.prank(alice);
         vault.join();
         vm.prank(bob);
@@ -268,6 +272,103 @@ contract CirclaVaultTest is Test {
         assertEq(stock.balanceOf(address(vault)), 500_000);
     }
 
+    function testUninvitedWalletCannotJoin() public {
+        vm.prank(mallory);
+        vm.expectRevert(CirclaVault.NotInvited.selector);
+        vault.join();
+        assertFalse(vault.isMember(mallory));
+    }
+
+    function testOnlyOwnerCanInvite() public {
+        address[] memory accounts = new address[](1);
+        accounts[0] = mallory;
+        vm.prank(alice);
+        vm.expectRevert();
+        vault.setInvites(accounts, true);
+
+        vault.setInvites(accounts, true);
+        vm.prank(mallory);
+        vault.join();
+        assertTrue(vault.isMember(mallory));
+    }
+
+    function testRevokedInviteBlocksJoin() public {
+        address[] memory accounts = new address[](1);
+        accounts[0] = mallory;
+        vault.setInvites(accounts, true);
+        vault.setInvites(accounts, false);
+        vm.prank(mallory);
+        vm.expectRevert(CirclaVault.NotInvited.selector);
+        vault.join();
+    }
+
+    function testExecutionRevertsBelowFeedPriceFloor() public {
+        _deposit(alice, 50e6);
+        _deposit(bob, 50e6);
+        // A zero slippage floor in the proposal no longer means "any price".
+        uint256 proposalId = _passProposal(address(stock), address(router), 100e6, 0);
+        // 0.94 stock at $100 = $94 for $100 spent: 6% below feed, over the 5% cap.
+        router.setOutput(940_000);
+        vm.prank(alice);
+        vm.expectRevert(CirclaVault.ExecutionPriceTooLow.selector);
+        vault.executeProposal(address(router), proposalId, 10);
+        assertEq(usdc.balanceOf(address(vault)), 100e6);
+    }
+
+    function testExecutionAtFeedPriceFloorSucceeds() public {
+        _deposit(alice, 50e6);
+        _deposit(bob, 50e6);
+        uint256 proposalId = _passProposal(address(stock), address(router), 100e6, 0);
+        // Exactly 95% of feed value is the edge of the allowed band.
+        router.setOutput(950_000);
+        vm.prank(alice);
+        vault.executeProposal(address(router), proposalId, 10);
+        assertEq(stock.balanceOf(address(vault)), 950_000);
+    }
+
+    function testMixedPolicyRecipientCanStillWithdrawAsUSDC() public {
+        _deposit(alice, 50e6);
+        _deposit(bob, 50e6);
+        uint256 p1 = _passProposal(address(stock), address(router), 50e6, 0);
+        router.setOutput(500_000);
+        vm.prank(alice);
+        vault.executeProposal(address(router), p1, 10);
+        uint256 p2 = _passProposal(address(stock2), address(router), 40e6, 0);
+        router.setOutput(400_000);
+        vm.prank(alice);
+        vault.executeProposal(address(router), p2, 10);
+
+        // Recipient clears the receiver policy for stock but not for stock2.
+        stock.setPolicy(7);
+        stock2.setPolicy(9);
+        policies.setAuthorizedFor(7, recipient, true);
+        uint256 units = vault.memberUnits(alice);
+
+        vm.prank(alice);
+        vm.expectRevert(CirclaVault.UnauthorizedRecipient.selector);
+        vault.withdraw(units, recipient);
+
+        // Half of each holding (250k + 200k) sold at 20 USDC per swap, plus half the 10 USDC float.
+        router.setOutput(20e6);
+        vm.prank(alice);
+        uint256 out = vault.withdrawAsUSDC(units, recipient, address(router), 44e6);
+        assertEq(out, 45e6);
+        assertEq(usdc.balanceOf(recipient), 45e6);
+        assertEq(vault.memberUnits(alice), 0);
+    }
+
+    function testAuthorizedRecipientMayChooseUSDC() public {
+        _buyStock();
+        stock.setPolicy(7);
+        policies.setAuthorized(recipient, true);
+        router.setOutput(50e6);
+        uint256 units = vault.memberUnits(alice);
+
+        vm.prank(alice);
+        vault.withdrawAsUSDC(units, recipient, address(router), 50e6);
+        assertEq(usdc.balanceOf(recipient), 50e6);
+    }
+
     function testCannotExecuteWithoutQuorum() public {
         _deposit(alice, 100e6);
         vm.prank(alice);
@@ -347,6 +448,18 @@ contract CirclaVaultTest is Test {
         usdc.approve(address(vault), amount);
         vault.deposit(amount);
         vm.stopPrank();
+    }
+
+    function _passProposal(address asset, address venue, uint256 amountIn, uint256 minAmountOut)
+        internal
+        returns (uint256 proposalId)
+    {
+        vm.prank(alice);
+        proposalId = vault.createProposal(asset, venue, amountIn, minAmountOut);
+        vm.prank(alice);
+        vault.vote(proposalId, true);
+        vm.prank(bob);
+        vault.vote(proposalId, true);
     }
 
     function _buyStock() internal {

@@ -109,6 +109,10 @@ contract CirclaVaultForkTest is Test {
         );
         deal(USDC, alice, 100e6);
         deal(USDC, bob, 100e6);
+        address[] memory invites = new address[](2);
+        invites[0] = alice;
+        invites[1] = bob;
+        vault.setInvites(invites, true);
         vm.prank(alice);
         vault.join();
         vm.prank(bob);
