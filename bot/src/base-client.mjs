@@ -19,7 +19,7 @@ const vaultAbi = parseAbi([
 
 // The demo vault was deployed at this block; scanning ContributionReceived
 // logs from here yields every member's lifetime deposits.
-export const VAULT_DEPLOY_BLOCK = 50985040n;
+export const VAULT_DEPLOY_BLOCK = 53844368n;
 
 // public mainnet.base.org caps eth_getLogs around 2-3k blocks (413 otherwise)
 export const LOG_SCAN_CHUNK = 2_000n;
