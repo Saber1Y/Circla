@@ -28,7 +28,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import { formatUnits, isAddress, parseUnits } from "viem";
+import { BaseError, ContractFunctionRevertedError, formatUnits, getAddress, isAddress, parseUnits } from "viem";
 import {
   EXPLORER,
   NVDAc,
@@ -36,6 +36,7 @@ import {
   ROUTER,
   USDC,
   STOCKS,
+  VAULT_ERROR_TEXT,
   registryAbi,
   stockByToken,
   usdcAbi,
@@ -96,10 +97,28 @@ const toProposal = (d: unknown): Proposal | undefined => {
 };
 
 const slice = (a: string, n = 6) => `${a.slice(0, n)}…${a.slice(-4)}`;
-const errMsg = (e: unknown) =>
-  ((e as { shortMessage?: string })?.shortMessage ??
+const errMsg = (e: unknown) => {
+  if (e instanceof BaseError) {
+    const revert = e.walk((err) => err instanceof ContractFunctionRevertedError);
+    const name = revert instanceof ContractFunctionRevertedError ? revert.data?.errorName : undefined;
+    if (name && VAULT_ERROR_TEXT[name]) return VAULT_ERROR_TEXT[name];
+  }
+  return (
+    (e as { shortMessage?: string })?.shortMessage ??
     (e as Error)?.message ??
-    String(e));
+    String(e)
+  );
+};
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+// Accepts addresses separated by commas, spaces, or new lines.
+const parseAddressList = (text: string) => {
+  const parts = text.split(/[\s,]+/).filter(Boolean);
+  const invalid = parts.filter((p) => !isAddress(p));
+  const valid = [...new Set(parts.filter((p) => isAddress(p)).map((p) => getAddress(p)))];
+  return { valid, invalid };
+};
 
 // The vault is supplied per-group via ?vault=0x… in the query string.
 // There is deliberately no default: without a vault the app shows a notice.
@@ -119,6 +138,12 @@ export default function AppPage() {
   const [propose, setPropose] = useState("10");
   const [slippage, setSlippage] = useState("1");
   const [tab, setTab] = useState<"vault" | "actions">("vault");
+  // ?invite=0x… (from a bot button in a private chat) prefills the owner's
+  // invite form, so open straight onto the Actions tab.
+  const invitePrefill = params?.get("invite")?.trim() ?? "";
+  useEffect(() => {
+    if (invitePrefill) setTab("actions");
+  }, [invitePrefill]);
 
   useEffect(() => {
     let alive = true;
@@ -175,6 +200,12 @@ export default function AppPage() {
       { address: V, abi: vaultAbi as Abi, functionName: "poolValue" },
       { address: V, abi: vaultAbi as Abi, functionName: "adjustedAssetBalance" },
       { address: NVDAc as `0x${string}`, abi: registryAbi as Abi, functionName: "getAsset", args: [NVDAc as `0x${string}`] },
+      { address: V, abi: vaultAbi as Abi, functionName: "owner" },
+      { address: V, abi: vaultAbi as Abi, functionName: "circleOpen" },
+      { address: V, abi: vaultAbi as Abi, functionName: "maxMembers" },
+      // Vaults deployed before invites existed have no invited() getter; this
+      // read then fails, which is how the app tells the two versions apart.
+      { address: V, abi: vaultAbi as Abi, functionName: "invited", args: [(address ?? ZERO_ADDRESS) as `0x${string}`] },
     ] as UseReadContractsParameters["contracts"],
     query: { enabled: hasVault },
   });
@@ -182,7 +213,15 @@ export default function AppPage() {
   const [
     nameRes, membersRes, totalUnitsRes, quorumRes, portfolioRes,
     proposalCountRes, poolValueRes, adjustedRes, assetRes,
+    ownerRes, circleOpenRes, maxMembersRes, invitedRes,
   ] = snapshot.data ?? [];
+
+  const owner = ownerRes?.result as string | undefined;
+  const isOwner = Boolean(address && owner && owner.toLowerCase() === address.toLowerCase());
+  const circleOpen = (circleOpenRes?.result as boolean | undefined) ?? true;
+  const maxMembers = (maxMembersRes?.result as number | undefined) ?? 0;
+  const invitesSupported = invitedRes?.status === "success";
+  const invited = invitesSupported ? (invitedRes?.result as boolean) : undefined;
 
   const proposalCount = (proposalCountRes?.result as bigint | undefined) ?? 0n;
   const isMember = useMemo(() => {
@@ -352,6 +391,13 @@ export default function AppPage() {
             />
           ) : (
             <ActionsView
+              isOwner={isOwner}
+              circleOpen={circleOpen}
+              invitesSupported={invitesSupported}
+              invited={invited}
+              memberCount={memberList.length}
+              maxMembers={maxMembers}
+              invitePrefill={invitePrefill}
               isMember={isMember}
               address={address}
               vault={vault}
@@ -673,7 +719,7 @@ function BackToModel({
     >
       <span className="flex items-center gap-2 text-[13px] font-semibold text-[#101114]">
         <ShieldCheck size={15} />
-        {memberCount} members pool funds together
+        {memberCount === 1 ? "1 member pools" : `${memberCount} members pool`} funds together
       </span>
       <ChevronRight size={15} className={`text-[#a8a29e] transition-transform ${expanded ? "rotate-90" : ""}`} />
     </button>
@@ -836,6 +882,13 @@ function VaultView({
 }
 
 function ActionsView({
+  isOwner,
+  circleOpen,
+  invitesSupported,
+  invited,
+  memberCount,
+  maxMembers,
+  invitePrefill,
   isMember,
   address,
   vault,
@@ -856,6 +909,13 @@ function ActionsView({
   setSlippage,
   onSuccess,
 }: {
+  isOwner: boolean;
+  circleOpen: boolean;
+  invitesSupported: boolean;
+  invited?: boolean;
+  memberCount: number;
+  maxMembers: number;
+  invitePrefill: string;
   isMember: boolean;
   address?: string;
   vault?: `0x${string}`;
@@ -878,8 +938,27 @@ function ActionsView({
 }) {
   return (
     <div className="mx-4 mt-3 space-y-3 pb-4">
+      {isOwner && (
+        <OwnerCard
+          vault={vault}
+          circleOpen={circleOpen}
+          invitesSupported={invitesSupported}
+          memberCount={memberCount}
+          maxMembers={maxMembers}
+          prefill={invitePrefill}
+          onSuccess={onSuccess}
+        />
+      )}
       {!isMember ? (
-        <JoinCard vault={vault} address={address} onSuccess={onSuccess} />
+        <JoinCard
+          isOwner={isOwner}
+          vault={vault}
+          address={address}
+          invited={invited}
+          circleOpen={circleOpen}
+          full={maxMembers > 0 && memberCount >= maxMembers}
+          onSuccess={onSuccess}
+        />
       ) : (
         <>
           <DepositCard
@@ -918,31 +997,34 @@ function ActionsView({
 }
 
 function JoinCard({
+  isOwner,
   vault,
   address,
+  invited,
+  circleOpen,
+  full,
   onSuccess,
 }: {
+  isOwner: boolean;
   vault?: `0x${string}`;
   address?: string;
+  // undefined on vaults that predate invites: joining is open there.
+  invited?: boolean;
+  circleOpen: boolean;
+  full: boolean;
   onSuccess: () => void;
 }) {
   const { writeContractAsync, isPending, error, data } = useWriteContract();
   const tx = useWaitForTransactionReceipt({ hash: data });
   const [status, setStatus] = useState<string | null>(null);
-  // Vaults deployed before invites existed have no invited() getter: the read
-  // fails and joining stays open, matching what that contract enforces.
-  const invite = useReadContract({
-    address: vault,
-    abi: vaultAbi as Abi,
-    functionName: "invited",
-    args: address ? [address as `0x${string}`] : undefined,
-    query: { enabled: Boolean(vault && address) },
-  });
-  const notInvited = invite.data === false;
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (tx.isSuccess) onSuccess();
   }, [tx.isSuccess, onSuccess]);
+
+  const notInvited = invited === false;
+  const blocked = !circleOpen || full || notInvited;
 
   const join = async () => {
     setStatus(null);
@@ -958,31 +1040,234 @@ function JoinCard({
     }
   };
 
+  const inviteCommand = `/invite ${address ?? ""}`;
+  const copyCommand = async () => {
+    if (!address) return;
+    try {
+      await navigator.clipboard.writeText(inviteCommand);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable (embedded WebView) - the address stays selectable */
+    }
+  };
+
+  const description = !circleOpen
+    ? "This circle is closed to new members."
+    : full
+      ? "Every seat in this circle is taken."
+      : notInvited && isOwner
+        ? "You own this circle but have not joined it yet. Invite your own wallet above, then join."
+        : notInvited
+          ? "This circle is invite-only. Send the command below in your group chat and the circle owner will be asked to invite you."
+          : "Sign once to become a member. Voting and contributing unlock after joining.";
+
+  const label = !circleOpen
+    ? "Circle closed"
+    : full
+      ? "Circle full"
+      : notInvited
+        ? "Waiting for an invite"
+        : isPending
+          ? "Confirming in wallet…"
+          : tx.isLoading
+            ? "Submitting…"
+            : "Join circle";
+
   return (
     <div className="rounded-3xl border border-[#e3dfd7] bg-white p-5">
       <h3 className="text-[17px] font-semibold tracking-[-0.01em]">Join the circle</h3>
-      <p className="mt-1 text-[13px] text-[#57534e]">
-        {notInvited
-          ? "This circle is invite-only. Share your wallet address with the circle owner so they can invite it, then come back to join."
-          : "Sign once to become a member. Voting and contributing unlock after joining."}
-      </p>
+      <p className="mt-1 text-[13px] leading-relaxed text-[#57534e]">{description}</p>
+      {circleOpen && !full && notInvited && !isOwner && address && (
+        <div className="mt-3 rounded-2xl border border-[#e3dfd7] bg-[#f5f3ee] p-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#a8a29e]">Send in the group</p>
+          <p className="mt-1.5 select-all font-mono text-[11px] leading-relaxed text-[#101114]">
+            <span className="block">/invite</span>
+            <span className="block">{address}</span>
+          </p>
+          <button
+            onClick={copyCommand}
+            className="mt-2 flex items-center gap-1.5 text-[12px] font-semibold text-[#57534e] hover:text-[#101114]"
+          >
+            {copied ? <Check size={13} /> : <Copy size={13} />}
+            {copied ? "Copied" : "Copy command"}
+          </button>
+        </div>
+      )}
       <button
         onClick={join}
-        disabled={notInvited || isPending || tx.isLoading}
+        disabled={blocked || isPending || tx.isLoading}
         className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#101114] py-3 text-[14px] font-semibold text-white disabled:opacity-50"
       >
         {isPending || tx.isLoading ? <Loader2 size={15} className="animate-spin" /> : <Lock size={15} />}
-        {notInvited
-          ? "Waiting for an invite"
-          : isPending
-            ? "Confirming in wallet…"
-            : tx.isLoading
-              ? "Submitting…"
-              : "Join circle"}
+        {label}
       </button>
       {error && <p className="mt-2 text-[12px] text-[#57534e]">{errMsg(error)}</p>}
       {status && <p className="mt-2 text-[12px] text-[#57534e]">{status}</p>}
     </div>
+  );
+}
+
+function OwnerCard({
+  vault,
+  circleOpen,
+  invitesSupported,
+  memberCount,
+  maxMembers,
+  prefill,
+  onSuccess,
+}: {
+  vault?: `0x${string}`;
+  circleOpen: boolean;
+  invitesSupported: boolean;
+  memberCount: number;
+  maxMembers: number;
+  prefill: string;
+  onSuccess: () => void;
+}) {
+  const { writeContractAsync, isPending, error, reset } = useWriteContract();
+  const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
+  const tx = useWaitForTransactionReceipt({ hash: txHash });
+  const [text, setText] = useState(prefill);
+  const [done, setDone] = useState<string | null>(null);
+  const [pendingNote, setPendingNote] = useState<string>("");
+  const [confirmClose, setConfirmClose] = useState(false);
+
+  useEffect(() => {
+    if (prefill) setText(prefill);
+  }, [prefill]);
+
+  // Runs once per confirmed transaction. onSuccess is a fresh closure every
+  // render and triggers refetches, so it is deliberately not a dependency.
+  useEffect(() => {
+    if (!tx.isSuccess) return;
+    setDone(pendingNote);
+    setText("");
+    setConfirmClose(false);
+    onSuccess();
+  }, [tx.isSuccess, txHash]);
+
+  const { valid, invalid } = parseAddressList(text);
+  const busy = isPending || tx.isLoading;
+  const seatsLeft = Math.max(0, maxMembers - memberCount);
+
+  const send = async (functionName: "setInvites" | "closeCircle", note: string, args?: readonly unknown[]) => {
+    if (!vault) return;
+    reset();
+    setDone(null);
+    setPendingNote(note);
+    try {
+      const h = await writeContractAsync({ address: vault, abi: vaultAbi as Abi, functionName, args });
+      setTxHash(h);
+    } catch {
+      /* surfaced through `error` */
+    }
+  };
+
+  const plural = (n: number) => `${n} wallet${n === 1 ? "" : "s"}`;
+
+  return (
+    <Card title="Circle membership" icon={<ShieldCheck size={15} />}>
+      <div className="flex items-center justify-between rounded-2xl bg-[#f5f3ee] px-3.5 py-2.5 text-[12px]">
+        <span className="font-semibold text-[#101114]">
+          {memberCount} of {maxMembers} seats taken
+        </span>
+        <span className={`flex items-center gap-1.5 font-semibold ${circleOpen ? "text-[#16a34a]" : "text-[#57534e]"}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${circleOpen ? "bg-[#16a34a]" : "bg-[#a8a29e]"}`} />
+          {circleOpen ? "Joining open" : "Joining closed"}
+        </span>
+      </div>
+
+      {!circleOpen ? (
+        <p className="mt-3 text-[12px] leading-relaxed text-[#57534e]">
+          This circle is closed for good. No new wallets can join, invited or not.
+        </p>
+      ) : invitesSupported ? (
+        <>
+          <label htmlFor="invite-wallets" className="mt-3 block text-[12px] font-semibold text-[#57534e]">
+            Wallet addresses to invite
+          </label>
+          <textarea
+            id="invite-wallets"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={2}
+            spellCheck={false}
+            placeholder="0x… one per line, or separated by commas"
+            className="mt-1.5 w-full resize-none rounded-2xl border border-[#e3dfd7] bg-[#f5f3ee] px-3.5 py-2.5 font-mono text-[12px] text-[#101114] outline-none placeholder:font-sans placeholder:text-[#a8a29e] focus:border-[#101114]"
+          />
+          {invalid.length > 0 ? (
+            <p className="mt-1 text-[12px] text-red-600">
+              Not a valid address: {invalid.map((a) => (a.length > 14 ? slice(a, 6) : a)).join(", ")}
+            </p>
+          ) : (
+            <p className="mt-1 text-[12px] text-[#a8a29e]">
+              {valid.length > 0
+                ? `${plural(valid.length)} ready. ${seatsLeft} seat${seatsLeft === 1 ? "" : "s"} left.`
+                : "Members can send /invite <wallet> in the group to request a spot."}
+            </p>
+          )}
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={() => send("setInvites", `Invited ${plural(valid.length)}. They can tap Join circle now.`, [valid, true])}
+              disabled={busy || valid.length === 0 || invalid.length > 0}
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#101114] py-3 text-[14px] font-semibold text-white disabled:opacity-50"
+            >
+              {busy && pendingNote.startsWith("Invited") ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+              Invite
+            </button>
+            <button
+              onClick={() => send("setInvites", `Revoked the invite for ${plural(valid.length)}. Existing members are unaffected.`, [valid, false])}
+              disabled={busy || valid.length === 0 || invalid.length > 0}
+              className="flex items-center justify-center gap-2 rounded-2xl border border-[#e3dfd7] bg-white px-4 py-3 text-[14px] font-semibold text-[#57534e] hover:text-[#101114] disabled:opacity-50"
+            >
+              Revoke
+            </button>
+          </div>
+        </>
+      ) : (
+        <p className="mt-3 text-[12px] leading-relaxed text-[#57534e]">
+          This vault was deployed before invites existed, so any wallet can join while it is open. Close
+          joining once your circle is complete.
+        </p>
+      )}
+
+      {circleOpen && (
+        <div className="mt-4 border-t border-[#efece6] pt-3">
+          {confirmClose ? (
+            <div className="flex items-center gap-2">
+              <p className="flex-1 text-[12px] leading-snug text-[#57534e]">Stop all new joins? This cannot be undone.</p>
+              <button
+                onClick={() => setConfirmClose(false)}
+                disabled={busy}
+                className="rounded-xl px-3 py-2 text-[12px] font-semibold text-[#57534e] hover:text-[#101114]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => send("closeCircle", "Joining is now closed.")}
+                disabled={busy}
+                className="flex items-center gap-1.5 rounded-xl bg-red-600 px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-50"
+              >
+                {busy && pendingNote.startsWith("Joining") && <Loader2 size={13} className="animate-spin" />}
+                Close joining
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmClose(true)}
+              className="text-[12px] font-semibold text-[#57534e] underline-offset-2 hover:text-[#101114] hover:underline"
+            >
+              Close joining for good
+            </button>
+          )}
+        </div>
+      )}
+
+      {tx.isLoading && <p className="mt-2 text-[12px] text-[#57534e]">Waiting for confirmation on Base…</p>}
+      {done && <p className="mt-2 text-[12px] font-medium text-[#16a34a]">{done}</p>}
+      {error && <ErrText error={error} />}
+    </Card>
   );
 }
 
@@ -1430,8 +1715,8 @@ function WithdrawCard({
       </div>
       <p className="mt-2 text-[12px] leading-relaxed text-[#57534e]">
         {mode === "raw"
-          ? `Raw ${holdingSymbol} only if your wallet clears Coinbase TRANSFER_RECEIVER_POLICY. Otherwise this reverts — use Auto → USDC.`
-          : "Vault liquidates your share to USDC via Aerodrome automatically. No policy check needed."}
+          ? `Raw stock only if your wallet clears the Coinbase receiver policy for every stock the vault holds, ${holdingSymbol} included. Otherwise use Auto → USDC.`
+          : "The vault sells your share of every held stock to USDC via Aerodrome. Open to every member, no policy check."}
       </p>
       <button
         onClick={run}

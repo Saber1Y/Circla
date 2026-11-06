@@ -19,6 +19,9 @@ export const vaultAbi = parseAbi([
   "function memberUnits(address) view returns (uint256)",
   "function isMember(address) view returns (bool)",
   "function invited(address) view returns (bool)",
+  "function owner() view returns (address)",
+  "function circleOpen() view returns (bool)",
+  "function maxMembers() view returns (uint8)",
   "function proposals(uint256) view returns (address proposer, address asset, address router, uint256 amountIn, uint256 minAmountOut, uint256 deadline, uint256 nonce, uint256 yesVotes, uint256 noVotes, bool executed, bool cancelled)",
   "function hasVoted(uint256, address) view returns (bool)",
   "function join()",
@@ -28,7 +31,52 @@ export const vaultAbi = parseAbi([
   "function executeProposal(address router, uint256 proposalId, int24 tickSpacing) returns (uint256 amountOut)",
   "function withdraw(uint256 units, address recipient) returns (uint256 usdcAmount, uint256 assetAmount)",
   "function withdrawAsUSDC(uint256 units, address recipient, address router, uint256 minAmountOut) returns (uint256 totalUsdc)",
+  "function setInvites(address[] accounts, bool allowed)",
+  "function closeCircle()",
+  // Custom errors, so viem can decode a revert into a name the UI can explain.
+  "error CircleClosedError()",
+  "error FullCircle()",
+  "error AlreadyMember()",
+  "error NotMember()",
+  "error NotInvited()",
+  "error InvalidProposal()",
+  "error ProposalExpired()",
+  "error AlreadyVoted()",
+  "error QuorumNotReached()",
+  "error SettlementPaused()",
+  "error UnauthorizedRecipient()",
+  "error InsufficientClaim()",
+  "error UnsafePrice()",
+  "error InvalidTickSpacing()",
+  "error InvalidRecipient()",
+  "error RecipientIsAuthorized()",
+  "error ExecutionPriceTooLow()",
+  "error OwnableUnauthorizedAccount(address account)",
 ]);
+
+// Plain-language explanations for vault reverts, keyed by custom error name.
+export const VAULT_ERROR_TEXT: Record<string, string> = {
+  CircleClosedError: "This circle is closed to new members.",
+  FullCircle: "This circle is full.",
+  AlreadyMember: "This wallet is already a member.",
+  NotMember: "Only circle members can do this. Join the circle first.",
+  NotInvited: "This wallet has not been invited yet. Ask the circle owner to invite it.",
+  InvalidProposal: "The vault rejected this request. Check the amount, stock, and route.",
+  ProposalExpired: "This proposal has expired.",
+  AlreadyVoted: "You already voted on this proposal.",
+  QuorumNotReached: "This proposal does not have enough yes votes yet.",
+  SettlementPaused: "Trading is paused by the circle owner.",
+  UnauthorizedRecipient:
+    "Your wallet does not clear the Coinbase receiver policy for every stock the vault holds. Use Auto → USDC instead.",
+  InsufficientClaim: "You do not have that many units to withdraw.",
+  UnsafePrice: "The stock price feed is stale right now, so the vault will not price the pool. Try again once markets update.",
+  InvalidTickSpacing: "The pool route does not match this stock's configuration.",
+  InvalidRecipient: "The withdrawal recipient is not valid.",
+  RecipientIsAuthorized: "This older vault only lets policy-cleared wallets withdraw raw stock. Use Raw instead.",
+  ExecutionPriceTooLow:
+    "The market price is more than 5% worse than the Chainlink price, so the vault refused the trade. Try again later.",
+  OwnableUnauthorizedAccount: "Only the circle owner can do this.",
+};
 
 export const usdcAbi = parseAbi([
   "function approve(address spender, uint256 amount) returns (bool)",
