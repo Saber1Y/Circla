@@ -4,12 +4,12 @@ import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createBaseClient, readVaultSnapshot, readProposal, readMemberShares, readContributionTotals, readEnabledStocks, invalidateContributionTotals, refreshContributionTotals } from './base-client.mjs';
+import { createBaseClient, readVaultSnapshot, readProposal, readMemberShares, readEnabledStocks, peekContributionTotals, syncContributionTotals } from './base-client.mjs';
 import { buildProposalPreview } from './proposal-service.mjs';
 import { parseIntent } from './intent-parser.mjs';
 import { formatSwapReceipt, formatContribution, formatStockList } from './receipts.mjs';
 import { createCircleStore } from './circle-store.mjs';
-import { createWatcher, pollVaultEvents, readQuorum, formatEvent } from './onchain-watcher.mjs';
+import { pollVaultEvents, readQuorum, formatEvent } from './onchain-watcher.mjs';
 import { COINBASE_STOCKS } from './base-assets.mjs';
 import { readInviteStatus, formatInviteReply } from './invite-service.mjs';
 
@@ -30,7 +30,9 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
   const bot = new Telegraf(token);
   const client = createBaseClient();
   const store = createCircleStore({ vaultAddress });
-  let watchers = new Map();
+  // One poller per vault, broadcasting to every group bound to it, so several
+  // groups on the same vault do not multiply RPC load.
+  const vaultWatchers = new Map();
 
   // Only respond to chatter that is directed at the bot. Commands are always
   // targeted, so they pass through. Plain text in a group must either be a
@@ -208,24 +210,33 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
   bot.command('members', async (ctx) => {
     const circle = boundCircle(ctx);
     try {
-      const [{ members, totalUnits }, totals, name] = await Promise.all([
+      // Units and shares are two contract reads. Lifetime deposits come from
+      // the event history, which is scanned in the background and shown once
+      // it has caught up, so a slow or throttled history scan never blocks
+      // the reply.
+      const [{ members, totalUnits }, name] = await Promise.all([
         readMemberShares(client, circle.vault),
-        readContributionTotals(client, circle.vault),
         readQuorum(client, circle.vault).then((q) => q.name),
       ]);
+      const deposits = peekContributionTotals(circle.vault);
+      syncContributionTotals(client, circle.vault).catch((error) => console.error('deposit history scan failed:', error.shortMessage ?? error.message));
       const lines = [
         esc(circle.title || name),
         `Members: ${members.length}`,
         '',
         ...members.map((s) => {
-          const deposited = totals.get(getAddress(s.address).toLowerCase()) ?? 0n;
+          const deposited = deposits.totals.get(getAddress(s.address).toLowerCase()) ?? 0n;
           const pct = totalUnits > 0n ? (s.units * 10000n) / totalUnits : 0n;
+          const depositText = deposits.complete ? `deposited ${formatUnits(deposited, 6)} USDC · ` : '';
           return [
             addrLink(getAddress(s.address)),
-            `  deposited ${formatUnits(deposited, 6)} USDC · ${formatUnits(s.units, 18)} units · ${Number(pct) / 100}% of pool`,
+            `  ${depositText}${formatUnits(s.units, 18)} units · ${Number(pct) / 100}% of pool`,
           ].join('\n');
         }),
       ];
+      if (!deposits.complete && members.length > 0) {
+        lines.push('', 'Lifetime deposit totals are still loading from chain history. Try /members again in a minute.');
+      }
       await ctx.reply(lines.join('\n'), {
         parse_mode: 'HTML',
         ...Markup.inlineKeyboard([appButton(ctx, 'Open CIRCLA app', circle)]),
@@ -362,48 +373,50 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
   // ---- Onchain watcher: broadcast real vault events into the group ----
   // Errors keep the loop alive (bad RPC), but never fabricate events.
   const startWatcher = async (chatId) => {
-    if (watchers.has(String(chatId))) return; // idempotent per group
     const circle = store.getCircle(chatId);
-    const watcher = createWatcher();
+    const key = circle.vault.toLowerCase();
+    const existing = vaultWatchers.get(key);
+    if (existing) {
+      existing.chats.add(String(chatId));
+      return;
+    }
+    const entry = { chats: new Set([String(chatId)]), timer: null };
+    vaultWatchers.set(key, entry);
     let lastBlock = undefined;
     let running = false;
     const loop = async () => {
       if (running) return;
       running = true;
       try {
-        const { events, lastBlock: next } = await pollVaultEvents({ client: watcher.client, vault: circle.vault, lastBlock });
+        const { events, lastBlock: next } = await pollVaultEvents({ client, vault: circle.vault, lastBlock });
         lastBlock = next;
         if (events.length === 0) return;
-        // A fresh contribution changed member totals - warm the /members cache
-        // in the background so the next /members is instant, not a slow scan.
+        // A fresh contribution extends the deposit history; scan just the new blocks.
         if (events.some((e) => e.eventName === 'ContributionReceived')) {
-          invalidateContributionTotals(circle.vault);
-          refreshContributionTotals(watcher.client, circle.vault).catch(() => {});
+          syncContributionTotals(client, circle.vault).catch(() => {});
         }
         const q = await readQuorum(client, circle.vault);
-        const labelled = { ...q, name: circle.title || q.name };
+        const proposals = new Map();
         for (const e of events) {
-          let text;
-          try {
-            if (['ProposalCreated', 'VoteCast'].includes(e.eventName)) {
-              const proposal = await readProposal(client, circle.vault, e.args.proposalId);
-              text = formatEvent(e, { ...labelled, proposal });
-            } else {
-              text = formatEvent(e, labelled);
-            }
-          } catch {
-            text = formatEvent(e, labelled);
+          if (['ProposalCreated', 'VoteCast'].includes(e.eventName) && !proposals.has(e.args.proposalId)) {
+            proposals.set(e.args.proposalId, await readProposal(client, circle.vault, e.args.proposalId).catch(() => undefined));
           }
-          await broadcast(chatId, text).catch(() => {});
+        }
+        for (const chat of entry.chats) {
+          const labelled = { ...q, name: store.getCircle(chat).title || q.name };
+          for (const e of events) {
+            const proposal = proposals.get(e.args?.proposalId);
+            await broadcast(chat, formatEvent(e, proposal ? { ...labelled, proposal } : labelled)).catch(() => {});
+          }
         }
       } catch (error) {
-        console.error('watcher error', error.message);
+        console.error('watcher error', error.shortMessage ?? error.message);
       } finally {
         running = false;
       }
     };
     await loop();
-    watchers.set(String(chatId), setInterval(loop, pollIntervalMs));
+    entry.timer = setInterval(loop, pollIntervalMs);
   };
 
   bot.command('watch', async (ctx) => {
@@ -420,7 +433,7 @@ export function createCirclaBot({ token, vaultAddress, tmaUrl, pollIntervalMs = 
     async restoreWatchers() {
       for (const circle of store.listCircles()) {
         await startWatcher(circle.chatId).catch(() => {});
-        refreshContributionTotals(client, circle.vault).catch(() => {});
+        syncContributionTotals(client, circle.vault).catch(() => {});
       }
     },
     async launch(options) {
