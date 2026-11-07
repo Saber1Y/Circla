@@ -4,14 +4,18 @@ import { getAddress } from 'viem';
 import { formatUnits } from 'viem';
 import { LOG_SCAN_CHUNK, getLogsResilient } from './base-client.mjs';
 
-const vaultAbi = parseAbi([
+// Must mirror CirclaVault's event declarations exactly, including `indexed`,
+// or getLogs decodes the data fields at the wrong offsets.
+export const vaultEventsAbi = parseAbi([
   'event MemberJoined(address indexed member)',
   'event InviteChanged(address indexed account, bool invited)',
   'event CircleClosed()',
   'event ContributionReceived(address indexed member, uint256 amount, uint256 units)',
-  'event ProposalCreated(uint256 indexed proposalId, address indexed proposer, address asset, uint256 amountIn, uint256 minAmountOut, uint256 deadline)',
+  'event ProposalCreated(uint256 indexed proposalId, address indexed proposer, address indexed asset, uint256 amountIn, uint256 minAmountOut, uint256 deadline)',
   'event VoteCast(uint256 indexed proposalId, address indexed member, bool support)',
   'event ProposalExecuted(uint256 indexed proposalId, address indexed router, uint256 amountIn, uint256 amountOut)',
+  'event Withdrawal(address indexed member, address indexed recipient, uint256 units, uint256 usdcAmount, uint256 assetAmount)',
+  'event LiquidationWithdrawal(address indexed member, address indexed recipient, uint256 units, uint256 reservedUsdc, uint256 liquidatedUsdc, uint256 assetAmount, address router)',
 ]);
 
 const readAbi = parseAbi([
@@ -51,6 +55,13 @@ export function formatEvent(event, { quorum = 0, name = 'CIRCLA pool', proposal 
     }
     case 'ProposalExecuted':
       return `✅ Proposal #${event.args.proposalId} executed: ${formatUsdc(event.args.amountIn)} USDC → ${shortAssetOut(event.args.amountOut)}`;
+    case 'Withdrawal': {
+      // assetAmount sums raw B20 balances across held stocks, all 8 decimals.
+      const stock = event.args.assetAmount > 0n ? ` + ${formatUnits(event.args.assetAmount, 8)} in stock` : '';
+      return `↩️ ${short(event.args.member)} withdrew ${formatUnits(event.args.units, 18)} units: ${formatUsdc(event.args.usdcAmount)} USDC${stock}`;
+    }
+    case 'LiquidationWithdrawal':
+      return `↩️ ${short(event.args.member)} withdrew ${formatUnits(event.args.units, 18)} units as ${formatUsdc(event.args.reservedUsdc + event.args.liquidatedUsdc)} USDC`;
     default:
       return `⚡ ${event.eventName}`;
   }
@@ -82,7 +93,7 @@ export async function pollVaultEvents({ client, vault, lastBlock = undefined, ev
     const end = cursor + MAX_RANGE > current ? current : cursor + MAX_RANGE;
     const chunk = await getLogsResilient(client, {
       address: vault,
-      events: vaultAbi,
+      events: vaultEventsAbi,
       fromBlock: cursor,
       toBlock: end,
     });
