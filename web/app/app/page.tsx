@@ -7,6 +7,7 @@ import {
   useAccount,
   useConnect,
   useDisconnect,
+  usePublicClient,
   useReadContract,
   useReadContracts,
   useWaitForTransactionReceipt,
@@ -81,6 +82,8 @@ type ProposalsTuple = [
 const toProposal = (d: unknown): Proposal | undefined => {
   if (!Array.isArray(d)) return undefined;
   const p = d as ProposalsTuple;
+  // proposals(id) for an id that was never created returns an all-zero struct.
+  if (!p[0] || /^0x0{40}$/i.test(p[0])) return undefined;
   return {
     proposer: p[0],
     asset: p[1],
@@ -122,6 +125,59 @@ const parseAddressList = (text: string) => {
 
 // The vault is supplied per-group via ?vault=0x… in the query string.
 // There is deliberately no default: without a vault the app shows a notice.
+// Parses a user-typed decimal amount; undefined for empty or malformed input.
+const toUnits = (value: string, decimals: number) => {
+  if (!/^\d*\.?\d+$|^\d+\.$/.test(value)) return undefined;
+  try {
+    return parseUnits(value, decimals);
+  } catch {
+    return undefined;
+  }
+};
+
+type WriteRequest = Parameters<ReturnType<typeof useWriteContract>["writeContractAsync"]>[0];
+
+// Sends a contract write, waits until it is mined, then calls onConfirmed so
+// reads refresh against the new state rather than the pre-transaction one.
+// Failures are kept in `error` for the card to show instead of being thrown.
+function useConfirmedWrite(onConfirmed?: () => void) {
+  const { writeContractAsync } = useWriteContract();
+  const publicClient = usePublicClient();
+  const [phase, setPhase] = useState<"idle" | "signing" | "confirming">("idle");
+  const [error, setError] = useState<Error | null>(null);
+
+  const send = async (request: WriteRequest) => {
+    setError(null);
+    setPhase("signing");
+    try {
+      const hash = await writeContractAsync(request);
+      setPhase("confirming");
+      if (!publicClient) throw new Error("No connection to Base.");
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      if (receipt.status !== "success") throw new Error("The transaction was mined but reverted.");
+      onConfirmed?.();
+      return true;
+    } catch (e) {
+      setError(e as Error);
+      return false;
+    } finally {
+      setPhase("idle");
+    }
+  };
+
+  return { send, phase, busy: phase !== "idle", error };
+}
+
+// Re-renders on an interval so countdowns and expiry stay current.
+function useNow(intervalMs: number) {
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    const id = setInterval(() => setNow(Math.floor(Date.now() / 1000)), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
 const VAULT_RE = /^0x[a-fA-F0-9]{40}$/i;
 const parseVault = (search: string) => {
   const v = new URLSearchParams(search).get("vault")?.trim() ?? "";
@@ -134,8 +190,8 @@ export default function AppPage() {
   const [chatTitle, setChatTitle] = useState<string>("");
   const [isTma, setIsTma] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [deposit, setDeposit] = useState("25");
-  const [propose, setPropose] = useState("10");
+  const [deposit, setDeposit] = useState("");
+  const [propose, setPropose] = useState("");
   const [slippage, setSlippage] = useState("1");
   const [tab, setTab] = useState<"vault" | "actions">("vault");
   // ?invite=0x… (from a bot button in a private chat) prefills the owner's
@@ -144,6 +200,15 @@ export default function AppPage() {
   useEffect(() => {
     if (invitePrefill) setTab("actions");
   }, [invitePrefill]);
+  // Bot buttons pass ?deposit=<USDC> and ?propose=<USDC>; prefill those amounts.
+  useEffect(() => {
+    if (!params) return;
+    const d = params.get("deposit")?.trim() ?? "";
+    const p = params.get("propose")?.trim() ?? "";
+    if (toUnits(d, 6) !== undefined) setDeposit(d);
+    if (toUnits(p, 6) !== undefined) setPropose(p);
+    if (d || p) setTab("actions");
+  }, [params]);
 
   useEffect(() => {
     let alive = true;
@@ -264,6 +329,14 @@ export default function AppPage() {
     query: { enabled: Boolean(address) },
   });
 
+  const vaultUsdc = useReadContract({
+    address: USDC as `0x${string}`,
+    abi: usdcAbi as Abi,
+    functionName: "balanceOf",
+    args: [V],
+    query: { enabled: hasVault },
+  });
+
   const usdcAllowance = useReadContract({
     address: USDC as `0x${string}`,
     abi: usdcAbi as Abi,
@@ -302,9 +375,12 @@ export default function AppPage() {
     snapshot.refetch();
     myUnits.refetch();
     memberShares.refetch();
-    latestProposal.refetch();
+    // A new proposal changes proposalCount, which re-keys this query on its own;
+    // refetching with id 0 would only read the empty slot.
+    if (proposalCount > 0n) latestProposal.refetch();
     usdcBalance.refetch();
     usdcAllowance.refetch();
+    vaultUsdc.refetch();
   };
 
   if (params === null) {
@@ -388,6 +464,7 @@ export default function AppPage() {
               memberUnitsList={(memberShares.data ?? []).map((r) => (r.result as bigint | undefined) ?? 0n)}
               address={address}
               vault={vault}
+              onSuccess={refresh}
             />
           ) : (
             <ActionsView
@@ -406,6 +483,7 @@ export default function AppPage() {
               proposal={proposal}
               usdcBalance={usdcBalance.data as bigint | undefined}
               usdcAllowance={usdcAllowance.data as bigint | undefined}
+              vaultUsdc={vaultUsdc.data as bigint | undefined}
               asset={portfolioCfg}
               stocks={enabledStocks}
               poolValue={poolValueRes?.result as bigint | undefined}
@@ -759,6 +837,7 @@ function VaultView({
   memberUnitsList,
   address,
   vault,
+  onSuccess,
 }: {
   poolValue?: bigint;
   totalUnits: bigint;
@@ -774,6 +853,7 @@ function VaultView({
   memberUnitsList: bigint[];
   address?: string;
   vault?: `0x${string}`;
+  onSuccess: () => void;
 }) {
   const poolTxt =
     poolValue === undefined
@@ -875,7 +955,7 @@ function VaultView({
       )}
 
       {proposal && (
-        <ProposalCard proposal={proposal} quorum={quorum} compact isMember={isMember} vault={vault} address={address} />
+        <ProposalCard proposal={proposal} quorum={quorum} compact isMember={isMember} vault={vault} address={address} onSuccess={onSuccess} />
       )}
     </div>
   );
@@ -897,6 +977,7 @@ function ActionsView({
   proposal,
   usdcBalance,
   usdcAllowance,
+  vaultUsdc,
   asset,
   stocks,
   poolValue,
@@ -924,6 +1005,7 @@ function ActionsView({
   proposal?: Proposal;
   usdcBalance?: bigint;
   usdcAllowance?: bigint;
+  vaultUsdc?: bigint;
   asset?: AssetConfigTuple;
   stocks: { meta: StockMeta; cfg: AssetConfigTuple }[];
   poolValue?: bigint;
@@ -975,6 +1057,7 @@ function ActionsView({
             slippage={slippage}
             setSlippage={setSlippage}
             stocks={stocks}
+            vaultUsdc={vaultUsdc}
             vault={vault}
             onSuccess={onSuccess}
           />
@@ -1014,30 +1097,15 @@ function JoinCard({
   full: boolean;
   onSuccess: () => void;
 }) {
-  const { writeContractAsync, isPending, error, data } = useWriteContract();
-  const tx = useWaitForTransactionReceipt({ hash: data });
-  const [status, setStatus] = useState<string | null>(null);
+  const tx = useConfirmedWrite(onSuccess);
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (tx.isSuccess) onSuccess();
-  }, [tx.isSuccess, onSuccess]);
 
   const notInvited = invited === false;
   const blocked = !circleOpen || full || notInvited;
 
   const join = async () => {
-    setStatus(null);
-    try {
-      if (!vault) throw new Error("No circle selected.");
-      await writeContractAsync({
-        address: vault,
-        abi: vaultAbi as Abi,
-        functionName: "join",
-      });
-    } catch (e) {
-      setStatus(errMsg(e));
-    }
+    if (!vault) return;
+    await tx.send({ address: vault, abi: vaultAbi as Abi, functionName: "join" });
   };
 
   const inviteCommand = `/invite ${address ?? ""}`;
@@ -1068,10 +1136,10 @@ function JoinCard({
       ? "Circle full"
       : notInvited
         ? "Waiting for an invite"
-        : isPending
+        : tx.phase === "signing"
           ? "Confirming in wallet…"
-          : tx.isLoading
-            ? "Submitting…"
+          : tx.phase === "confirming"
+            ? "Joining…"
             : "Join circle";
 
   return (
@@ -1096,14 +1164,13 @@ function JoinCard({
       )}
       <button
         onClick={join}
-        disabled={blocked || isPending || tx.isLoading}
+        disabled={blocked || tx.busy}
         className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#101114] py-3 text-[14px] font-semibold text-white disabled:opacity-50"
       >
-        {isPending || tx.isLoading ? <Loader2 size={15} className="animate-spin" /> : <Lock size={15} />}
+        {tx.busy ? <Loader2 size={15} className="animate-spin" /> : <Lock size={15} />}
         {label}
       </button>
-      {error && <p className="mt-2 text-[12px] text-[#57534e]">{errMsg(error)}</p>}
-      {status && <p className="mt-2 text-[12px] text-[#57534e]">{status}</p>}
+      {tx.error && <ErrText error={tx.error} />}
     </div>
   );
 }
@@ -1286,72 +1353,58 @@ function DepositCard({
   vault?: `0x${string}`;
   onSuccess: () => void;
 }) {
-  const { writeContractAsync, isPending, error } = useWriteContract();
-  const [txHash, setTxHash] = useState<string | null>(null);
-  const tx = useWaitForTransactionReceipt({ hash: txHash as `0x${string}` | undefined });
+  const approveTx = useConfirmedWrite(onSuccess);
+  const depositTx = useConfirmedWrite(onSuccess);
+  const [step, setStep] = useState<"approve" | "deposit" | null>(null);
 
-  const amount = Number(deposit);
-  const valid = amount > 0 && Number.isFinite(amount);
-  const allowanceUsdc = allowance === undefined ? undefined : Number(allowance) / 1e6;
-  const needsApprove = valid && allowanceUsdc !== undefined && amount > allowanceUsdc;
-  const waiting = isPending || tx.isLoading;
+  const raw = toUnits(deposit, 6);
+  const valid = raw !== undefined && raw > 0n;
+  const overBalance = valid && usdcBalance !== undefined && raw > usdcBalance;
+  const needsApprove = valid && allowance !== undefined && raw > allowance;
+  const busy = approveTx.busy || depositTx.busy;
+  const error = approveTx.error ?? depositTx.error;
 
-  // Two-step from a smart wallet: approve, then once confirmed, deposit.
-  const [approveHash, setApproveHash] = useState<string | null>(null);
-  const approveTx = useWaitForTransactionReceipt({
-    hash: approveHash as `0x${string}` | undefined,
-  });
-
-  useEffect(() => {
-    if (approveTx.isSuccess) {
-      setTxHash(null);
-      setApproveHash(null);
-      // approval confirmed - run the deposit step
-      void runDeposit();
-    }
-  }, [approveTx.isSuccess]);
-
-  const runDeposit = async () => {
-    try {
-      if (!vault) throw new Error("No circle selected.");
-      const raw = parseUnits(deposit, 6);
-      const h = await writeContractAsync({
-        address: vault,
-        abi: vaultAbi as Abi,
-        functionName: "deposit",
-        args: [raw],
-      });
-      setTxHash(h);
-      onSuccess();
-    } catch (e) {
-      setTxHash(null);
-      onSuccess();
-      throw e as Error;
-    }
-  };
-
+  // Approve exactly the amount, then deposit once the approval is mined.
   const run = async () => {
-    try {
-      if (!vault) throw new Error("No circle selected.");
-      const raw = parseUnits(deposit, 6);
-      if (needsApprove) {
-        const approveHash2 = await writeContractAsync({
-          address: USDC as `0x${string}`,
-          abi: usdcAbi as Abi,
-          functionName: "approve",
-          args: [vault, raw],
-        });
-        setTxHash(approveHash2);
-        setApproveHash(approveHash2);
-      } else {
-        await runDeposit();
-      }
-    } catch (e) {
-      setTxHash(null);
-      onSuccess();
-      throw e as Error;
+    if (!vault || raw === undefined) return;
+    if (needsApprove) {
+      setStep("approve");
+      const approved = await approveTx.send({
+        address: USDC as `0x${string}`,
+        abi: usdcAbi as Abi,
+        functionName: "approve",
+        args: [vault, raw],
+      });
+      if (!approved) return setStep(null);
     }
+    setStep("deposit");
+    const deposited = await depositTx.send({
+      address: vault,
+      abi: vaultAbi as Abi,
+      functionName: "deposit",
+      args: [raw],
+    });
+    setStep(null);
+    if (deposited) setDeposit("");
   };
+
+  const label = !valid
+    ? "Enter an amount"
+    : overBalance
+      ? "Not enough USDC"
+      : step === "approve"
+        ? approveTx.phase === "confirming"
+          ? "Approving… (step 1 of 2)"
+          : "Approve in wallet (step 1 of 2)"
+        : step === "deposit"
+          ? depositTx.phase === "confirming"
+            ? "Depositing…"
+            : needsApprove
+              ? "Deposit in wallet (step 2 of 2)"
+              : "Confirm in wallet"
+          : needsApprove
+            ? `Approve + deposit $${deposit}`
+            : `Deposit $${deposit}`;
 
   return (
     <Card title="Contribute USDC" icon={<Wallet size={15} />}>
@@ -1364,13 +1417,18 @@ function DepositCard({
         </div>
       )}
       <AmountInput value={deposit} onChange={setDeposit} prefix="$" accent />
+      {overBalance && usdcBalance !== undefined && (
+        <p className="mt-2 text-[12px] text-red-600">
+          Your wallet holds ${formatUnits(usdcBalance, 6)} USDC. Enter that or less.
+        </p>
+      )}
       <button
         onClick={run}
-        disabled={!valid || isPending || tx.isLoading}
+        disabled={!valid || overBalance || busy}
         className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#101114] py-3 text-[14px] font-semibold text-white disabled:opacity-50"
       >
-        {isPending || tx.isLoading ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-        {needsApprove ? `Approve + deposit $${deposit}` : `Deposit $${deposit}`}
+        {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+        {label}
       </button>
       {error && <ErrText error={error} />}
     </Card>
@@ -1383,6 +1441,7 @@ function ProposeCard({
   slippage,
   setSlippage,
   stocks,
+  vaultUsdc,
   vault,
   onSuccess,
 }: {
@@ -1391,12 +1450,11 @@ function ProposeCard({
   slippage: string;
   setSlippage: (v: string) => void;
   stocks: { meta: StockMeta; cfg: AssetConfigTuple }[];
+  vaultUsdc?: bigint;
   vault?: `0x${string}`;
   onSuccess: () => void;
 }) {
-  const { writeContractAsync, isPending, error } = useWriteContract();
-  const [txHash, setTxHash] = useState<string | null>(null);
-  const tx = useWaitForTransactionReceipt({ hash: txHash as `0x${string}` | undefined });
+  const proposeTx = useConfirmedWrite(onSuccess);
 
   // Registry-driven stock selection. Every enabled stock is selectable — the
   // vault legitimately holds a multi-asset basket, so the UI never pins the
@@ -1423,9 +1481,13 @@ function ProposeCard({
   });
 
   const amount = Number(propose);
+  const amountRaw = toUnits(propose, 6);
   const maxTradeUsdc = asset ? Number(asset[4]) / 1e6 : 0;
-  const valid =
-    amount > 0 && Number.isFinite(amount) && maxTradeUsdc > 0 && amount <= maxTradeUsdc;
+  const overLimit = amountRaw !== undefined && maxTradeUsdc > 0 && amount > maxTradeUsdc;
+  // Execution spends the vault's USDC, so a buy larger than the pool can pass
+  // a vote and still fail. Catch it before anyone votes.
+  const overPool = amountRaw !== undefined && vaultUsdc !== undefined && amountRaw > vaultUsdc;
+  const valid = amountRaw !== undefined && amountRaw > 0n && maxTradeUsdc > 0 && !overLimit && !overPool;
   const slippagePct = Math.min(99, Math.max(0.1, Number(slippage) || 1)) / 100;
 
   const quoteUsd = quote.data
@@ -1435,32 +1497,24 @@ function ProposeCard({
   const tokenDp = asset?.[2] ?? 8;
 
   const run = async () => {
-    try {
-      if (!vault) throw new Error("No circle selected.");
-      if (!selected) throw new Error("No registry-enabled stock available yet.");
-      const amountIn = parseUnits(propose, 6);
-      let minAmountOut = amountIn;
-      if (quoteUsd && quoteUsd > 0n) {
-        // rawB20 = amountInRaw * 10^(tokenDp+feedDp) / (answer * 1e6) — inverse of _assetValue.
-        minAmountOut =
-          (amountIn *
-            BigInt(10 ** (tokenDp + feedDp))) /
-          (quoteUsd * 1000000n);
-        minAmountOut = (minAmountOut * BigInt(Math.round((1 - slippagePct) * 1000))) / 1000n;
-      }
-      const h = await writeContractAsync({
-        address: vault,
-        abi: vaultAbi as Abi,
-        functionName: "createProposal",
-        args: [selected.meta.token as `0x${string}`, ROUTER as `0x${string}`, amountIn, minAmountOut],
-      });
-      setTxHash(h);
-      onSuccess();
-    } catch (e) {
-      setTxHash(null);
-      onSuccess();
-      throw e as Error;
+    if (!vault || !selected || amountRaw === undefined) return;
+    const amountIn = amountRaw;
+    let minAmountOut = amountIn;
+    if (quoteUsd && quoteUsd > 0n) {
+      // rawB20 = amountInRaw * 10^(tokenDp+feedDp) / (answer * 1e6) — inverse of _assetValue.
+      minAmountOut =
+        (amountIn *
+          BigInt(10 ** (tokenDp + feedDp))) /
+        (quoteUsd * 1000000n);
+      minAmountOut = (minAmountOut * BigInt(Math.round((1 - slippagePct) * 1000))) / 1000n;
     }
+    const created = await proposeTx.send({
+      address: vault,
+      abi: vaultAbi as Abi,
+      functionName: "createProposal",
+      args: [selected.meta.token as `0x${string}`, ROUTER as `0x${string}`, amountIn, minAmountOut],
+    });
+    if (created) setPropose("");
   };
 
   return (
@@ -1504,15 +1558,29 @@ function ProposeCard({
           <span className="ml-auto">quoting…</span>
         )}
       </p>
+      {overPool && vaultUsdc !== undefined && (
+        <p className="mt-2 text-[12px] text-red-600">
+          The vault holds ${formatUnits(vaultUsdc, 6)} USDC. Propose that or less, or deposit more first.
+        </p>
+      )}
+      {overLimit && (
+        <p className="mt-2 text-[12px] text-red-600">This stock allows at most ${maxTradeUsdc} per trade.</p>
+      )}
       <button
         onClick={run}
-        disabled={!selected || !valid || isPending || tx.isLoading}
+        disabled={!selected || !valid || proposeTx.busy}
         className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#101114] py-3 text-[14px] font-semibold text-white disabled:opacity-50"
       >
-        {isPending || tx.isLoading ? <Loader2 size={15} className="animate-spin" /> : <Vote size={15} />}
-        {isPending ? "Confirming…" : "Create proposal"}
+        {proposeTx.busy ? <Loader2 size={15} className="animate-spin" /> : <Vote size={15} />}
+        {proposeTx.phase === "signing"
+          ? "Confirm in wallet"
+          : proposeTx.phase === "confirming"
+            ? "Creating proposal…"
+            : amountRaw === undefined
+              ? "Enter an amount"
+              : "Create proposal"}
       </button>
-      {error && <ErrText error={error} />}
+      {proposeTx.error && <ErrText error={proposeTx.error} />}
     </Card>
   );
 }
@@ -1534,8 +1602,6 @@ function ProposalCard({
   address?: string;
   onSuccess?: () => void;
 }) {
-  const { writeContractAsync, isPending, error } = useWriteContract();
-  const [step, setStep] = useState<string | null>(null);
   const voteStatus = useReadContract({
     address: vault,
     abi: vaultAbi as Abi,
@@ -1554,28 +1620,40 @@ function ProposalCard({
   const holdingSymbol =
     stockByToken(proposal.asset)?.symbol ?? `${proposal.asset.slice(0, 6)}…`;
 
+  const now = useNow(15_000);
+  const secondsLeft = Number(proposal.deadline) - now;
   const status = proposal.executed
     ? "executed"
     : proposal.cancelled
       ? "cancelled"
-      : "awaiting votes";
+      : secondsLeft <= 0
+        ? "expired"
+        : "awaiting votes";
+  const quorumReached =
+    quorum > 0 && proposal.yesVotes >= BigInt(quorum) && proposal.yesVotes > proposal.noVotes;
 
-  const action = async (fn: "vote" | "executeProposal", args: unknown[]) => {
-    setStep(fn);
-    try {
-      if (!vault) throw new Error("No circle selected.");
-      const h = await writeContractAsync({
-        address: vault,
-        abi: vaultAbi as Abi,
-        functionName: fn,
-        args,
-      });
-      onSuccess?.();
-    } catch (e) {
-      setStep(null);
-      throw e as Error;
-    }
+  const tx = useConfirmedWrite(() => {
+    voteStatus.refetch();
+    onSuccess?.();
+  });
+  const [step, setStep] = useState<"yes" | "no" | "execute" | null>(null);
+
+  const action = async (which: "yes" | "no" | "execute") => {
+    if (!vault) return;
+    setStep(which);
+    await tx.send(
+      which === "execute"
+        ? {
+            address: vault,
+            abi: vaultAbi as Abi,
+            functionName: "executeProposal",
+            args: [proposal.router, proposal.nonce, proposalTickSpacing],
+          }
+        : { address: vault, abi: vaultAbi as Abi, functionName: "vote", args: [proposal.nonce, which === "yes"] },
+    );
+    setStep(null);
   };
+  const spinner = <Loader2 size={14} className="mx-auto animate-spin" />;
 
   return (
     <Card title={`Proposal #${proposal.nonce}`} icon={<Vote size={15} />}>
@@ -1591,40 +1669,52 @@ function ProposalCard({
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
           status === "executed" ? "bg-[#dcfce7] text-[#166534]" : status === "awaiting votes" ? "bg-[#fef9c3] text-[#854d0e]" : "bg-[#f3f4f6] text-[#6b7280]"
         }`}>
-          {status}
+          {status === "awaiting votes" && quorumReached ? "ready to execute" : status}
         </span>
       </div>
+      {status === "awaiting votes" && (
+        <p className="mt-1 text-[11px] text-[#a8a29e]">
+          {secondsLeft >= 3600
+            ? `Closes in ${Math.floor(secondsLeft / 3600)}h ${Math.floor((secondsLeft % 3600) / 60)}m`
+            : `Closes in ${Math.max(1, Math.ceil(secondsLeft / 60))} min`}
+        </p>
+      )}
+      {status === "expired" && (
+        <p className="mt-2 text-[12px] text-[#57534e]">
+          Voting closed before this buy was executed. Propose it again to retry.
+        </p>
+      )}
       {status === "awaiting votes" && alreadyVoted && (
         <p className="mt-3 text-[12px] font-semibold text-[#57534e]">You already voted on this proposal.</p>
       )}
       {(status === "awaiting votes" || compact === false) && isMember && !alreadyVoted && status === "awaiting votes" && (
         <div className="mt-3 flex gap-2">
           <button
-            onClick={() => action("vote", [proposal.nonce, true])}
-            disabled={isPending || step === "vote"}
+            onClick={() => action("yes")}
+            disabled={tx.busy}
             className="flex-1 rounded-xl bg-[#dedfe4] py-2.5 text-[13px] font-semibold text-[#101114] disabled:opacity-50"
           >
-            {step === "vote" ? <Loader2 size={14} className="mx-auto animate-spin" /> : "Vote yes"}
+            {step === "yes" ? spinner : "Vote yes"}
           </button>
           <button
-            onClick={() => action("vote", [proposal.nonce, false])}
-            disabled={isPending || step === "vote"}
+            onClick={() => action("no")}
+            disabled={tx.busy}
             className="flex-1 rounded-xl border border-[#e3dfd7] py-2.5 text-[13px] font-semibold text-[#57534e] disabled:opacity-50"
           >
-            {step === "vote" ? <Loader2 size={14} className="mx-auto animate-spin" /> : "Vote no"}
+            {step === "no" ? spinner : "Vote no"}
           </button>
         </div>
       )}
-      {status === "awaiting votes" && quorum > 0 && proposal.yesVotes >= BigInt(quorum) && proposal.yesVotes > proposal.noVotes && isMember && proposalTickSpacing !== undefined && (
+      {status === "awaiting votes" && quorumReached && isMember && proposalTickSpacing !== undefined && (
         <button
-          onClick={() => action("executeProposal", [proposal.router, proposal.nonce, proposalTickSpacing])}
-          disabled={isPending || step === "executeProposal"}
+          onClick={() => action("execute")}
+          disabled={tx.busy}
           className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#16a34a] py-2.5 text-[13px] font-semibold text-white disabled:opacity-50"
         >
-          {step === "executeProposal" ? <Loader2 size={14} className="animate-spin" /> : "Execute swap"}
+          {step === "execute" ? spinner : "Execute swap"}
         </button>
       )}
-      {error && <ErrText error={error} />}
+      {tx.error && <ErrText error={tx.error} />}
     </Card>
   );
 }
@@ -1646,10 +1736,8 @@ function WithdrawCard({
   vault?: `0x${string}`;
   onSuccess: () => void;
 }) {
-  const { writeContractAsync, isPending, error } = useWriteContract();
   const [mode, setMode] = useState<"auto" | "raw">("auto");
-  const [txHash, setTxHash] = useState<string | null>(null);
-  const tx = useWaitForTransactionReceipt({ hash: txHash as `0x${string}` | undefined });
+  const tx = useConfirmedWrite(onSuccess);
 
   const feed = asset?.[1] as `0x${string}` | undefined;
   const holdingSymbol = stockByToken(asset?.[0])?.symbol ?? "stock";
@@ -1664,39 +1752,29 @@ function WithdrawCard({
   });
 
   const run = async () => {
-    try {
-      if (!vault) throw new Error("No circle selected.");
-      setTxHash(null);
-      const units = myUnits ?? 0n;
-      if (mode === "raw") {
-        const h = await writeContractAsync({
-          address: vault,
-          abi: vaultAbi as Abi,
-          functionName: "withdraw",
-          args: [units, address as `0x${string}`],
-        });
-        setTxHash(h);
-      } else {
-        // Member share of the full basket (all held assets + USDC), 5% slippage guard.
-        let minAmountOut = 0n;
-        if (poolValue && totalUnits && totalUnits > 0n) {
-          minAmountOut = (poolValue * (myUnits ?? 0n)) / totalUnits;
-          minAmountOut = (minAmountOut * 950n) / 1000n;
-        }
-        const h = await writeContractAsync({
-          address: vault,
-          abi: vaultAbi as Abi,
-          functionName: "withdrawAsUSDC",
-          args: [units, address as `0x${string}`, ROUTER as `0x${string}`, minAmountOut],
-        });
-        setTxHash(h);
-      }
-      onSuccess();
-    } catch (e) {
-      setTxHash(null);
-      onSuccess();
-      throw e as Error;
+    if (!vault) return;
+    const units = myUnits ?? 0n;
+    if (mode === "raw") {
+      await tx.send({
+        address: vault,
+        abi: vaultAbi as Abi,
+        functionName: "withdraw",
+        args: [units, address as `0x${string}`],
+      });
+      return;
     }
+    // Member share of the full basket (all held assets + USDC), 5% slippage guard.
+    let minAmountOut = 0n;
+    if (poolValue && totalUnits && totalUnits > 0n) {
+      minAmountOut = (poolValue * units) / totalUnits;
+      minAmountOut = (minAmountOut * 950n) / 1000n;
+    }
+    await tx.send({
+      address: vault,
+      abi: vaultAbi as Abi,
+      functionName: "withdrawAsUSDC",
+      args: [units, address as `0x${string}`, ROUTER as `0x${string}`, minAmountOut],
+    });
   };
 
   return (
@@ -1721,15 +1799,19 @@ function WithdrawCard({
       </p>
       <button
         onClick={run}
-        disabled={!myUnits || myUnits === 0n || isPending || tx.isLoading}
+        disabled={!myUnits || myUnits === 0n || tx.busy}
         className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#101114] py-3 text-[14px] font-semibold text-white disabled:opacity-50"
       >
-        {isPending || tx.isLoading ? <Loader2 size={15} className="animate-spin" /> : <ArrowUpRight size={15} />}
-        {myUnits && myUnits > 0n
-          ? `Withdraw ${formatUnits(myUnits, 18)} units (${mode})`
-          : "No units yet"}
+        {tx.busy ? <Loader2 size={15} className="animate-spin" /> : <ArrowUpRight size={15} />}
+        {tx.phase === "signing"
+          ? "Confirm in wallet"
+          : tx.phase === "confirming"
+            ? "Withdrawing…"
+            : myUnits && myUnits > 0n
+              ? `Withdraw ${formatUnits(myUnits, 18)} units (${mode})`
+              : "No units yet"}
       </button>
-      {error && <ErrText error={error} />}
+      {tx.error && <ErrText error={tx.error} />}
     </Card>
   );
 }
