@@ -68,3 +68,23 @@ test('formats invite and close events for the group feed', () => {
   assert.match(revokedText, /invite to Nairobi Tech Circle was revoked/);
   assert.match(formatEvent({eventName: 'CircleClosed', args: {}}, {name: 'Nairobi Tech Circle'}), /closed to new members/);
 });
+
+test('decodes ProposalCreated with the contract layout (asset indexed)', async () => {
+  const {encodeAbiParameters, encodeEventTopics, parseEventLogs} = await import('viem');
+  const {vaultEventsAbi} = await import('../src/onchain-watcher.mjs');
+  const asset = '0xb20000000000000000000078ee7ce2fE4908108C';
+  const topics = encodeEventTopics({abi: vaultEventsAbi, eventName: 'ProposalCreated', args: {proposalId: 1n, proposer: owner, asset}});
+  const data = encodeAbiParameters([{type: 'uint256'}, {type: 'uint256'}, {type: 'uint256'}], [5_000_000n, 2_612_920n, 1_793_969_762n]);
+  const [log] = parseEventLogs({abi: vaultEventsAbi, logs: [{topics, data, address: owner, blockNumber: 1n, logIndex: 0, transactionHash: '0x' + '0'.repeat(64), transactionIndex: 0, blockHash: '0x' + '0'.repeat(64), removed: false}]});
+  assert.equal(log.args.asset.toLowerCase(), asset.toLowerCase());
+  assert.equal(log.args.amountIn, 5_000_000n);
+  assert.equal(log.args.minAmountOut, 2_612_920n);
+  assert.equal(log.args.deadline, 1_793_969_762n);
+});
+
+test('announces both withdrawal paths in the group feed', () => {
+  const usdc = formatEvent({eventName: 'LiquidationWithdrawal', args: {member: wallet, units: 5n * 10n ** 18n, reservedUsdc: 0n, liquidatedUsdc: 4_995_000n}}, {name: 'Circle'});
+  assert.match(usdc, /withdrew 5 units as 4\.995 USDC/);
+  const raw = formatEvent({eventName: 'Withdrawal', args: {member: wallet, units: 10n ** 18n, usdcAmount: 1_000_000n, assetAmount: 2_644_824n}}, {name: 'Circle'});
+  assert.match(raw, /withdrew 1 units: 1 USDC \+ 0\.02644824 in stock/);
+});
