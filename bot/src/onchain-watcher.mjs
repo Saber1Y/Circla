@@ -1,5 +1,4 @@
-import { createPublicClient, http, parseAbi } from 'viem';
-import { base } from 'viem/chains';
+import { parseAbi } from 'viem';
 import { getAddress } from 'viem';
 import { formatUnits } from 'viem';
 import { LOG_SCAN_CHUNK, getLogsResilient } from './base-client.mjs';
@@ -22,11 +21,6 @@ const readAbi = parseAbi([
   'function quorum() view returns (uint8)',
   'function circleName() view returns (string)',
 ]);
-
-export function createWatcher({ rpcUrl = process.env.BASE_RPC_URL ?? 'https://mainnet.base.org' } = {}) {
-  const client = createPublicClient({ chain: base, transport: http(rpcUrl) });
-  return { client };
-}
 
 // Format a raw chain event into a human short code for the GC. Handles the
 // actual event log (from viem getLogs), not formatted chat state.
