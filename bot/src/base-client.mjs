@@ -1,4 +1,4 @@
-import {createPublicClient, http, parseAbi} from 'viem';
+import {createPublicClient, fallback, http, parseAbi} from 'viem';
 import {base} from 'viem/chains';
 import {COINBASE_STOCKS} from './base-assets.mjs';
 
@@ -23,6 +23,9 @@ export const VAULT_DEPLOY_BLOCK = 53844368n;
 
 // public mainnet.base.org caps eth_getLogs around 2-3k blocks (413 otherwise)
 export const LOG_SCAN_CHUNK = 2_000n;
+// Deposit-history scans start wide and halve down to MIN_SCAN_CHUNK on errors.
+const HISTORY_SCAN_CHUNK = 10_000n;
+const MIN_SCAN_CHUNK = 500n;
 
 // contribution events, indexed for /members
 const contributionEvent = parseAbi(['event ContributionReceived(address indexed member, uint256 amount, uint256 units)']);
@@ -47,8 +50,28 @@ export async function getLogsResilient(client, params, { maxRetries = 4, baseDel
   throw lastError;
 }
 
-export function createBaseClient({rpcUrl = process.env.BASE_RPC_URL ?? 'https://mainnet.base.org'} = {}) {
-  return createPublicClient({chain: base, transport: http(rpcUrl, {retryCount: 3, timeout: 15_000})});
+// Public endpoints tried after any configured ones. mainnet.base.org throttles
+// shared hosts like Render hard; publicnode serves eth_getLogs over wide ranges.
+const PUBLIC_RPC_URLS = ['https://mainnet.base.org', 'https://base-rpc.publicnode.com'];
+
+// BASE_RPC_URL (one URL) or BASE_RPC_URLS (comma-separated) come first, so a
+// dedicated endpoint is always preferred when one is configured.
+export function baseRpcUrls(env = process.env) {
+  const configured = [env.BASE_RPC_URLS, env.BASE_RPC_URL]
+    .filter(Boolean)
+    .flatMap((v) => v.split(','))
+    .map((u) => u.trim())
+    .filter(Boolean);
+  return [...new Set([...configured, ...PUBLIC_RPC_URLS])];
+}
+
+// A rate-limited or failing endpoint falls through to the next one instead of
+// failing the command.
+export function createBaseClient({rpcUrls = baseRpcUrls()} = {}) {
+  return createPublicClient({
+    chain: base,
+    transport: fallback(rpcUrls.map((url) => http(url, {retryCount: 1, timeout: 15_000}))),
+  });
 }
 
 export async function readVaultSnapshot(client, vaultAddress) {
@@ -139,55 +162,69 @@ export async function readMemberShares(client, vaultAddress) {
 }
 
 // Lifetime USDC each member deposited, from ContributionReceived logs.
-// Scanned in LOG_SCAN_CHUNK-sized chunks (public Base RPC caps eth_getLogs
-// payloads around 2-3k blocks), then deduped - mirrors pollVaultEvents so
-// /members works for older vaults too.
-// Lifetime USDC each member deposited, from ContributionReceived logs.
-// Scanned in LOG_SCAN_CHUNK-sized chunks (public Base RPC caps eth_getLogs
-// payloads around 2-3k blocks), then deduped - mirrors pollVaultEvents so
-// /members works for older vaults too. Heavy scans are cached briefly so a
-// burst of /members calls doesn't re-scan the vault's entire history.
-const contributionTotalsCache = new Map();
-export function invalidateContributionTotals(vaultAddress) {
-  contributionTotalsCache.delete(String(vaultAddress).toLowerCase());
-}
+// Base produces several blocks a second, so a vault's history quickly spans
+// hundreds of thousands of blocks. History is scanned once, then only new
+// blocks: progress is kept per vault and saved after every chunk, so a
+// throttled request resumes where it stopped instead of starting over.
+const contributionState = new Map();
 
-// Recompute lifetime contribution totals now (ignoring TTL) and store into the
-// cache. Used to pre-warm in the background so a /members right after a fresh
-// contribution never hits a slow genesis scan on camera.
-export async function refreshContributionTotals(client, vaultAddress) {
-  const current = await client.getBlockNumber();
-  const MAX_RANGE = LOG_SCAN_CHUNK;
-  const totals = new Map();
-  let cursor = VAULT_DEPLOY_BLOCK;
-  while (cursor <= current) {
-    const end = cursor + MAX_RANGE > current ? current : cursor + MAX_RANGE;
-    const chunk = await getLogsResilient(client, {
-      address: vaultAddress,
-      event: contributionEvent[0],
-      fromBlock: cursor,
-      toBlock: end,
-    });
-    const seen = new Set();
-    for (const log of chunk) {
-      const key = `${log.blockNumber}-${log.logIndex}-${log.transactionHash}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const member = log.args.member.toLowerCase();
-      totals.set(member, (totals.get(member) ?? 0n) + log.args.amount);
-    }
-    cursor = end + 1n;
+function stateFor(vaultAddress) {
+  const key = String(vaultAddress).toLowerCase();
+  if (!contributionState.has(key)) {
+    contributionState.set(key, {scannedTo: VAULT_DEPLOY_BLOCK - 1n, head: undefined, totals: new Map(), syncing: null});
   }
-  contributionTotalsCache.set(String(vaultAddress).toLowerCase(), { at: Date.now(), totals });
-  return totals;
+  return contributionState.get(key);
 }
 
-export async function readContributionTotals(client, vaultAddress, { ttlMs = 30_000 } = {}) {
-  const cached = contributionTotalsCache.get(String(vaultAddress).toLowerCase());
-  if (cached && Date.now() - cached.at < ttlMs) return new Map(cached.totals);
-  await refreshContributionTotals(client, vaultAddress);
-  const totals = contributionTotalsCache.get(String(vaultAddress).toLowerCase()).totals;
-  return new Map(totals);
+// Totals scanned so far; `complete` is true once the scan has reached the
+// chain head it last saw.
+export function peekContributionTotals(vaultAddress) {
+  const state = stateFor(vaultAddress);
+  return {totals: new Map(state.totals), complete: state.head !== undefined && state.scannedTo >= state.head};
+}
+
+// Scans any blocks not seen yet. Concurrent callers share one scan.
+export function syncContributionTotals(client, vaultAddress, {pauseMs = 150} = {}) {
+  const state = stateFor(vaultAddress);
+  if (state.syncing) return state.syncing;
+  state.syncing = (async () => {
+    const head = await client.getBlockNumber();
+    state.head = head;
+    // Wide ranges keep a long history to a few dozen requests; endpoints that
+    // cap eth_getLogs ranges get a smaller chunk on the next attempt.
+    let chunk = HISTORY_SCAN_CHUNK;
+    while (state.scannedTo < head) {
+      const from = state.scannedTo + 1n;
+      const to = from + chunk - 1n > head ? head : from + chunk - 1n;
+      let logs;
+      try {
+        logs = await getLogsResilient(client, {
+          address: vaultAddress,
+          event: contributionEvent[0],
+          fromBlock: from,
+          toBlock: to,
+        }, {maxRetries: 2});
+      } catch (error) {
+        if (chunk <= MIN_SCAN_CHUNK) throw error;
+        chunk /= 2n;
+        continue;
+      }
+      const seen = new Set();
+      for (const log of logs) {
+        const key = `${log.blockNumber}-${log.logIndex}-${log.transactionHash}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const member = log.args.member.toLowerCase();
+        state.totals.set(member, (state.totals.get(member) ?? 0n) + log.args.amount);
+      }
+      state.scannedTo = to;
+      if (pauseMs > 0 && state.scannedTo < head) await sleep(pauseMs);
+    }
+    return peekContributionTotals(vaultAddress);
+  })().finally(() => {
+    state.syncing = null;
+  });
+  return state.syncing;
 }
 
 // Tradable stocks = catalog entries enabled in the vault's onchain asset
